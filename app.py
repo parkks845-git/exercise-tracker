@@ -162,7 +162,7 @@ week_end_date   = week_start_date + timedelta(days=6)
 ACTIVITIES = [
     {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",     "resource_label": "Did you use the iSTEP video tutorial?"},
     {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps",   "resource_label": "Did you use the iSTEP audio playlist?"},
-    {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Walk / Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
     {"name": "Other Aerobic",     "icon": "🤸", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
 ]
 
@@ -194,7 +194,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 Weekly Goals", "📈 My Progress"])
+tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 Monthly Goals", "📈 My Progress"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — LOG ACTIVITY
@@ -347,9 +347,12 @@ with tab1:
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
     st.subheader(f"Set SMART Goals for Month {current_month}")
-    st.caption(
+    st.markdown(
+        f"<p style='font-size:0.95rem; color:var(--color-text-secondary);'>"
         f"{month_start_date.strftime('%B %d')} – {month_end_date.strftime('%B %d, %Y')}"
-    )
+        f"</p>",
+        unsafe_allow_html=True
+)
 
     # ── Load existing goals for this month ────────────────────────────────────
     try:
@@ -530,7 +533,7 @@ with tab3:
             ) + 1
 
             # Combine all aerobic activities into a single "Aerobic Training" group
-            AEROBIC_TYPES = {"Aerobic Steps", "Walk & Jog", "Other Aerobic"}
+            AEROBIC_TYPES = {"Aerobic Steps", "Walk / Jog", "Other Aerobic"}
             df_acts_prog["chart_group"] = df_acts_prog["activity_type"].apply(
                 lambda x: "Aerobic Training" if x in AEROBIC_TYPES else x
             )
@@ -647,7 +650,7 @@ with tab3:
                     delta=f"{st_tot / max(st_wks, 1):.0f} min/week avg"
                 )
 
-            # Aerobic Training (Aerobic Steps + Walk & Jog combined)
+            # Aerobic Training (Aerobic Steps + Walk / Jog + Other Aerobic combined)
             with sc2:
                 ae_df  = df_acts_prog[df_acts_prog["activity_type"].isin(AEROBIC_TYPES)]
                 ae_tot = ae_df["duration_minutes"].sum()
