@@ -123,9 +123,10 @@ week_end_date   = week_start_date + timedelta(days=6)
 
 # ── Activity definitions ──────────────────────────────────────────────────────
 ACTIVITIES = [
-    {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",  "resource_label": "Did you use the iSTEP video tutorial?"},
-    {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps","resource_label": "Did you use the iSTEP audio playlist?"},
-    {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",  "resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",     "resource_label": "Did you use the iSTEP video tutorial?"},
+    {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps",   "resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Walk / Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Other Aerobic",     "icon": "🚴", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
 ]
 
 # ── Session state init ────────────────────────────────────────────────────────
@@ -166,7 +167,7 @@ with tab1:
 
     any_running = any(st.session_state[f"running_{a['key']}"] for a in ACTIVITIES)
 
-    cols = st.columns(3)
+    cols = st.columns(4)
     for i, act in enumerate(ACTIVITIES):
         k = act["key"]
         with cols[i]:
@@ -305,9 +306,9 @@ with tab1:
 # TAB 2 — WEEKLY GOALS
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.subheader(
-        f"Set Goals for Week {current_week} "
-        f"({week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')})"
+    st.subheader(f"Set Goals for Week {current_week}")
+    st.caption(
+        f"{week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')}"
     )
 
     try:
@@ -402,8 +403,8 @@ with tab3:
                 (df_acts_prog["date"] - pd.Timestamp(STUDY_START)).dt.days // 7
             ) + 1
 
-            # Combine Aerobic Steps + Walk & Jog into a single "Aerobic Training" group
-            AEROBIC_TYPES = {"Aerobic Steps", "Walk & Jog"}
+            # Combine all aerobic activities into a single "Aerobic Training" group
+            AEROBIC_TYPES = {"Aerobic Steps", "Walk / Jog", "Other Aerobic"}
             df_acts_prog["chart_group"] = df_acts_prog["activity_type"].apply(
                 lambda x: "Aerobic Training" if x in AEROBIC_TYPES else x
             )
@@ -511,7 +512,7 @@ with tab3:
                     delta=f"{st_tot / max(st_wks, 1):.0f} min/week avg"
                 )
 
-            # Aerobic Training (Aerobic Steps + Walk & Jog combined)
+            # Aerobic Training (Aerobic Steps + Walk / Jog combined)
             with sc2:
                 ae_df  = df_acts_prog[df_acts_prog["activity_type"].isin(AEROBIC_TYPES)]
                 ae_tot = ae_df["duration_minutes"].sum()
