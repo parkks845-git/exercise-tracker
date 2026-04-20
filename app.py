@@ -39,6 +39,10 @@ st.markdown("""
 .activity-header img   { height: 2rem; width: auto; }
 .activity-header .act-emoji { font-size: 2rem; line-height: 1; }
 .activity-header .act-name  { font-size: 1rem; font-weight: 600; }
+[data-testid="stAppViewContainer"] > .main > div:first-child {
+    padding-top: 0.5rem;
+}
+[data-testid="stHeader"] { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
