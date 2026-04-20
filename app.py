@@ -40,7 +40,7 @@ st.markdown("""
 .activity-header .act-emoji { font-size: 2rem; line-height: 1; }
 .activity-header .act-name  { font-size: 1rem; font-weight: 600; }
 #root > div:nth-child(1) > div > div > div > div > section > div {
-    padding-top: 0.1rem !important;
+    padding-top: 1.2rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
