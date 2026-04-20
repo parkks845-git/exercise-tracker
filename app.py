@@ -136,7 +136,7 @@ def img_to_html(path: str, height: str = "2rem") -> str:
 
 # ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
-STUDY_START  = date(2026, 4, 20)
+STUDY_START = date.fromisoformat(st.secrets["STUDY_START"])
 STUDY_WEEKS  = 32   # ~8 months, used for progress chart x-axis
 STUDY_MONTHS = 8
 
