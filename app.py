@@ -126,7 +126,7 @@ ACTIVITIES = [
     {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",     "resource_label": "Did you use the iSTEP video tutorial?"},
     {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps",   "resource_label": "Did you use the iSTEP audio playlist?"},
     {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
-    {"name": "Other Aerobic",     "icon": "🤸", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Other Aerobic",     "icon": "🚴‍♂️", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
 ]
 
 # ── Session state init ────────────────────────────────────────────────────────
