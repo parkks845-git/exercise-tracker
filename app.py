@@ -116,10 +116,15 @@ for act in ACTIVITIES:
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("iSTEP Exercise Tracker")
-st.caption(
-    f"Participant **{subject_id}**  ·  "
-    f"Week {current_week} of {STUDY_WEEKS}  ·  "
-    f"{today.strftime('%A, %B %d, %Y')}"
+st.markdown(
+    f"<p style='font-size:1.2rem; margin-top:-8px;'>"
+    f"Participant &nbsp;<strong>{subject_id}</strong>"
+    f"&nbsp;&nbsp;·&nbsp;&nbsp;"
+    f"Week <strong>{current_week}</strong> of {STUDY_WEEKS}"
+    f"&nbsp;&nbsp;·&nbsp;&nbsp;"
+    f"<strong>{today.strftime('%A, %B %d, %Y')}</strong>"
+    f"</p>",
+    unsafe_allow_html=True
 )
 
 tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 Weekly Goals", "📈 My Progress"])
