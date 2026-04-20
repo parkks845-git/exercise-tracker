@@ -41,7 +41,7 @@ st.markdown("""
 .activity-header .act-emoji { font-size: 2rem; line-height: 1; }
 .activity-header .act-name  { font-size: 1rem; font-weight: 600; }
 #root > div:nth-child(1) > div > div > div > div > section > div {
-    padding-top: 0.5rem !important;
+    padding-top: 1.2rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -388,28 +388,33 @@ with tab2:
             s_location = st.multiselect(
                 "Where will you do this activity?",
                 LOCATION_OPTIONS,
-                default=parse_list(get_val("strength_location", ""))
+                default=parse_list(get_val("strength_location", "")),
+                key="s_location"
             )
             s_days_pw = st.number_input(
                 "How many days per week?",
                 min_value=0, max_value=7,
-                value=int(get_val("strength_days_per_week", 2)), step=1
+                value=int(get_val("strength_days_per_week", 2)), step=1,
+                key="s_days_pw"
             )
             s_days = st.multiselect(
                 "On which days of the week?",
                 DAY_OPTIONS,
-                default=parse_list(get_val("strength_days", ""))
+                default=parse_list(get_val("strength_days", "")),
+                key="s_days"
             )
         with gc2:
             s_time = st.text_input(
                 "At what time of day?",
                 value=str(get_val("strength_time", "")),
-                placeholder="e.g. 8:00 AM"
+                placeholder="e.g. 8:00 AM",
+                key="s_time"
             )
             s_duration = st.number_input(
                 "How long per session (minutes)?",
                 min_value=0, max_value=240,
-                value=int(get_val("strength_duration", 30)), step=5
+                value=int(get_val("strength_duration", 30)), step=5,
+                key="s_duration"
             )
             s_weekly = s_days_pw * s_duration
             st.metric("Weekly target", f"{s_weekly} min",
@@ -424,28 +429,33 @@ with tab2:
             a_location = st.multiselect(
                 "Where will you do this activity?",
                 LOCATION_OPTIONS,
-                default=parse_list(get_val("aerobic_location", ""))
+                default=parse_list(get_val("aerobic_location", "")),
+                key="a_location"
             )
             a_days_pw = st.number_input(
                 "How many days per week?",
                 min_value=0, max_value=7,
-                value=int(get_val("aerobic_days_per_week", 3)), step=1
+                value=int(get_val("aerobic_days_per_week", 3)), step=1,
+                key="a_days_pw"
             )
             a_days = st.multiselect(
                 "On which days of the week?",
                 DAY_OPTIONS,
-                default=parse_list(get_val("aerobic_days", ""))
+                default=parse_list(get_val("aerobic_days", "")),
+                key="a_days"
             )
         with ac2:
             a_time = st.text_input(
                 "At what time of day?",
                 value=str(get_val("aerobic_time", "")),
-                placeholder="e.g. 7:00 AM"
+                placeholder="e.g. 7:00 AM",
+                key="a_time"
             )
             a_duration = st.number_input(
                 "How long per session (minutes)?",
                 min_value=0, max_value=240,
-                value=int(get_val("aerobic_duration", 30)), step=5
+                value=int(get_val("aerobic_duration", 30)), step=5,
+                key="a_duration"
             )
             a_weekly = a_days_pw * a_duration
             st.metric("Weekly target", f"{a_weekly} min",
