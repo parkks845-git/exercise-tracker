@@ -93,7 +93,6 @@ def save_goal(pid: str, week_number: int, week_start: str,
 # !! Update STUDY_START to your actual study start date !!
 STUDY_START = date(2026, 5, 1)
 STUDY_WEEKS = 32  # ~8 months
-
 today           = date.today()
 current_week    = max(1, min(STUDY_WEEKS, ((today - STUDY_START).days // 7) + 1))
 week_start_date = STUDY_START + timedelta(weeks=current_week - 1)
@@ -117,7 +116,7 @@ for act in ACTIVITIES:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("iSTEP Exercise Tracker")
 st.markdown(
-    f"<p style='font-size:1.2rem; margin-top:-8px;'>"
+    f"<p style='font-size:1rem; margin-top:-8px;'>"
     f"Participant &nbsp;<strong>{subject_id}</strong>"
     f"&nbsp;&nbsp;·&nbsp;&nbsp;"
     f"Week <strong>{current_week}</strong> of {STUDY_WEEKS}"
