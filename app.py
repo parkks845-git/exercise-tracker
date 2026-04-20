@@ -284,8 +284,7 @@ with tab1:
 # TAB 2 — WEEKLY GOALS
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.subheader(f"Set Goals for Week {current_week} · "
-        f"{week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')}"
+    st.subheader(f"Set Goals for Week {current_week} ({week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')})"
     )
 
     try:
