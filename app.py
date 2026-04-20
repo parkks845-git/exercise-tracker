@@ -302,21 +302,24 @@ with tab2:
         df_goals = pd.DataFrame()
         existing = pd.DataFrame()
 
-    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 60
+    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 2
     default_aerobic  = int(existing["aerobic_goal"].values[0])  if not existing.empty else 150
 
     with st.form("goal_form"):
-        st.markdown("**Minutes per week target:**")
-        gc1, gc2, gc3 = st.columns(3)
+        gc1, gc2 = st.columns(2)
         with gc1:
+            st.markdown("**💪 Strength Training**")
+            st.caption("Sessions per week")
             strength_goal = st.number_input(
-                "💪 Strength Training", min_value=0, max_value=840,
-                value=default_strength, step=5
+                "Sessions/week", min_value=0, max_value=14,
+                value=default_strength, step=1, label_visibility="collapsed"
             )
         with gc2:
+            st.markdown("**🏃 Aerobic Training**")
+            st.caption("Minutes per week")
             aerobic_goal = st.number_input(
-                "🏃 Aerobic Exercise", min_value=0, max_value=840,
-                value=default_aerobic, step=5
+                "Minutes/week", min_value=0, max_value=840,
+                value=default_aerobic, step=5, label_visibility="collapsed"
             )
         if st.form_submit_button(
             "💾 Save Goals for This Week",
@@ -344,7 +347,7 @@ with tab2:
             ]].copy()
             disp.columns = [
                 "Week", "Week Starting",
-                "💪 Strength (min)", "🏃 Aerobic (min)",
+                "💪 Strength (sessions)", "🏃 Aerobic Training (min)",
             ]
             disp["Week"] = pd.to_numeric(disp["Week"])
             st.dataframe(
@@ -379,28 +382,39 @@ with tab3:
                 (df_acts_prog["date"] - pd.Timestamp(STUDY_START)).dt.days // 7
             ) + 1
 
+            # Combine Aerobic Steps + Walk & Jog into a single "Aerobic Training" group
+            AEROBIC_TYPES = {"Aerobic Steps", "Walk & Jog"}
+            df_acts_prog["chart_group"] = df_acts_prog["activity_type"].apply(
+                lambda x: "Aerobic Training" if x in AEROBIC_TYPES else x
+            )
+
             weekly_totals = (
                 df_acts_prog
-                .groupby(["week_number", "activity_type"])["duration_minutes"]
+                .groupby(["week_number", "chart_group"])["duration_minutes"]
                 .sum()
                 .reset_index()
             )
 
-            fig      = go.Figure()
-            act_meta = {a["name"]: a for a in ACTIVITIES}
+            # Two chart lines: Strength Training + Aerobic Training
+            CHART_LINES = [
+                {"name": "Strength Training", "color": "#7F77DD"},
+                {"name": "Aerobic Training",  "color": "#1D9E75"},
+            ]
 
-            for act in ACTIVITIES:
-                act_data = weekly_totals[weekly_totals["activity_type"] == act["name"]]
-                if not act_data.empty:
+            fig = go.Figure()
+
+            for line in CHART_LINES:
+                line_data = weekly_totals[weekly_totals["chart_group"] == line["name"]]
+                if not line_data.empty:
                     fig.add_trace(go.Scatter(
-                        x=act_data["week_number"],
-                        y=act_data["duration_minutes"],
-                        name=act["name"],
+                        x=line_data["week_number"],
+                        y=line_data["duration_minutes"],
+                        name=line["name"],
                         mode="lines+markers",
-                        line=dict(color=act["color"], width=2.5),
-                        marker=dict(size=7, color=act["color"]),
+                        line=dict(color=line["color"], width=2.5),
+                        marker=dict(size=7, color=line["color"]),
                         hovertemplate=(
-                            f"<b>{act['name']}</b><br>"
+                            f"<b>{line['name']}</b><br>"
                             "Week %{x}<br>%{y:.0f} min<extra></extra>"
                         )
                     ))
@@ -409,12 +423,11 @@ with tab3:
                 df_goals_prog["week_number"] = pd.to_numeric(
                     df_goals_prog["week_number"], errors="coerce"
                 )
-                for col, act_name in [
-                    ("strength_goal", "Strength Training"),
-                    ("aerobic_goal",  "Aerobic Exercise"),
-                    ("walking_goal",  "Walking / Jogging"),
+                # Only overlay aerobic goal (minutes) — strength goal is in sessions,
+                # a different unit, so it is not plotted on the minutes axis
+                for col, act_name, color in [
+                    ("aerobic_goal", "Aerobic Training", "#1D9E75"),
                 ]:
-                    color = act_meta[act_name]["color"]
                     df_goals_prog[col] = pd.to_numeric(
                         df_goals_prog[col], errors="coerce"
                     )
@@ -466,17 +479,29 @@ with tab3:
 
             st.divider()
             st.subheader("Summary")
-            sc1, sc2, sc3 = st.columns(3)
-            for col_widget, act in zip([sc1, sc2, sc3], ACTIVITIES):
-                with col_widget:
-                    act_df = df_acts_prog[df_acts_prog["activity_type"] == act["name"]]
-                    total  = act_df["duration_minutes"].sum()
-                    weeks  = act_df["week_number"].nunique()
-                    st.metric(
-                        label=f"{act['icon']} {act['name']}",
-                        value=f"{total:.0f} min total",
-                        delta=f"{total / max(weeks, 1):.0f} min/week avg"
-                    )
+            sc1, sc2 = st.columns(2)
+
+            # Strength Training
+            with sc1:
+                st_df  = df_acts_prog[df_acts_prog["activity_type"] == "Strength Training"]
+                st_tot = st_df["duration_minutes"].sum()
+                st_wks = st_df["week_number"].nunique()
+                st.metric(
+                    label="💪 Strength Training",
+                    value=f"{st_tot:.0f} min total",
+                    delta=f"{st_tot / max(st_wks, 1):.0f} min/week avg"
+                )
+
+            # Aerobic Training (Aerobic Steps + Walk & Jog combined)
+            with sc2:
+                ae_df  = df_acts_prog[df_acts_prog["activity_type"].isin(AEROBIC_TYPES)]
+                ae_tot = ae_df["duration_minutes"].sum()
+                ae_wks = ae_df["week_number"].nunique()
+                st.metric(
+                    label="🏃 Aerobic Training",
+                    value=f"{ae_tot:.0f} min total",
+                    delta=f"{ae_tot / max(ae_wks, 1):.0f} min/week avg"
+                )
 
     except Exception as e:
         st.error(f"Could not load progress data: {e}")
