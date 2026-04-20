@@ -125,8 +125,8 @@ week_end_date   = week_start_date + timedelta(days=6)
 ACTIVITIES = [
     {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",     "resource_label": "Did you use the iSTEP video tutorial?"},
     {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps",   "resource_label": "Did you use the iSTEP audio playlist?"},
-    {"name": "Walk / Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
-    {"name": "Other Aerobic",     "icon": "🚴", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",     "resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Other Aerobic",     "icon": "🤸", "img": None,              "color": "#D85A30", "key": "other_aerobic","resource_label": "Did you use the iSTEP audio playlist?"},
 ]
 
 # ── Session state init ────────────────────────────────────────────────────────
@@ -232,12 +232,15 @@ with tab1:
                             key=f"used_resource_{k}",
                             horizontal=True
                         )
-                        synchrony = st.selectbox(
-                            "Synchrony between exercise tempo and auditory cues:",
-                            ["Not at all", "Slightly", "Moderately",
-                             "Mostly", "Completely"],
-                            key=f"synchrony_{k}"
-                        )
+                        if used_resource == "Yes":
+                            synchrony = st.selectbox(
+                                "Synchrony between exercise tempo and auditory cues:",
+                                ["Not at all", "Slightly", "Moderately",
+                                 "Mostly", "Completely"],
+                                key=f"synchrony_{k}"
+                            )
+                        else:
+                            synchrony = "N/A"
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("▶ Resume", key=f"resume_{k}",
@@ -323,7 +326,7 @@ with tab2:
         df_goals = pd.DataFrame()
         existing = pd.DataFrame()
 
-    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 60
+    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 30
     default_aerobic  = int(existing["aerobic_goal"].values[0])  if not existing.empty else 150
 
     with st.form("goal_form"):
@@ -404,7 +407,7 @@ with tab3:
             ) + 1
 
             # Combine all aerobic activities into a single "Aerobic Training" group
-            AEROBIC_TYPES = {"Aerobic Steps", "Walk / Jog", "Other Aerobic"}
+            AEROBIC_TYPES = {"Aerobic Steps", "Walk & Jog", "Other Aerobic"}
             df_acts_prog["chart_group"] = df_acts_prog["activity_type"].apply(
                 lambda x: "Aerobic Training" if x in AEROBIC_TYPES else x
             )
@@ -512,7 +515,7 @@ with tab3:
                     delta=f"{st_tot / max(st_wks, 1):.0f} min/week avg"
                 )
 
-            # Aerobic Training (Aerobic Steps + Walk / Jog combined)
+            # Aerobic Training (Aerobic Steps + Walk & Jog combined)
             with sc2:
                 ae_df  = df_acts_prog[df_acts_prog["activity_type"].isin(AEROBIC_TYPES)]
                 ae_tot = ae_df["duration_minutes"].sum()
