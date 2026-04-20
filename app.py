@@ -284,9 +284,10 @@ with tab1:
 # TAB 2 — WEEKLY GOALS
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.subheader(
-        f"Set Goals for Week {current_week} "
-        f"({week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')})"
+    st.subheader("Set Weekly Goals")
+    st.caption(
+        f"Week {current_week} · "
+        f"{week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')}"
     )
 
     try:
@@ -301,24 +302,21 @@ with tab2:
         df_goals = pd.DataFrame()
         existing = pd.DataFrame()
 
-    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 2
+    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 30
     default_aerobic  = int(existing["aerobic_goal"].values[0])  if not existing.empty else 150
 
     with st.form("goal_form"):
-        gc1, gc2 = st.columns(2)
+        st.markdown("**Minutes per week target:**")
+        gc1, gc2, gc3 = st.columns(3)
         with gc1:
-            st.markdown("**💪 Strength Training**")
-            st.caption("Sessions per week")
             strength_goal = st.number_input(
-                "Sessions/week", min_value=0, max_value=14,
-                value=default_strength, step=1, label_visibility="collapsed"
+                "💪 Strength Training", min_value=0, max_value=840,
+                value=default_strength, step=5
             )
         with gc2:
-            st.markdown("**🏃 Aerobic Training**")
-            st.caption("Minutes per week")
             aerobic_goal = st.number_input(
-                "Minutes/week", min_value=0, max_value=840,
-                value=default_aerobic, step=5, label_visibility="collapsed"
+                "🏃 Aerobic Exercise", min_value=0, max_value=840,
+                value=default_aerobic, step=5
             )
         if st.form_submit_button(
             "💾 Save Goals for This Week",
@@ -346,7 +344,7 @@ with tab2:
             ]].copy()
             disp.columns = [
                 "Week", "Week Starting",
-                "💪 Strength (sessions)", "🏃 Aerobic Training (min)",
+                "💪 Strength (min)", "🏃 Aerobic (min)",
             ]
             disp["Week"] = pd.to_numeric(disp["Week"])
             st.dataframe(
