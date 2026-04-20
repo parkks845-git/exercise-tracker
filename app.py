@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from supabase import create_client, Client
 import time
+import base64
 from datetime import datetime, date, timedelta
 
 st.set_page_config(
@@ -28,7 +29,16 @@ st.markdown("""
     margin-bottom: 8px;
     text-align: center;
 }
-.activity-icon { font-size: 2rem; }
+.activity-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.activity-header img   { height: 2rem; width: auto; }
+.activity-header .act-emoji { font-size: 2rem; line-height: 1; }
+.activity-header .act-name  { font-size: 1rem; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -89,6 +99,16 @@ def save_goal(pid: str, week_number: int, week_start: str,
         "aerobic_goal":   aerobic_goal,
     }, on_conflict="subject_id,week_number").execute()
 
+# ── Image helper ─────────────────────────────────────────────────────────────
+def img_to_html(path: str, height: str = "2rem") -> str:
+    try:
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        mime = "image/png" if path.lower().endswith(".png") else "image/jpeg"
+        return f'<img src="data:{mime};base64,{b64}" style="height:{height};width:auto;">'
+    except Exception:
+        return ""
+
 # ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
 STUDY_START = date(2026, 5, 1)
@@ -114,13 +134,18 @@ for act in ACTIVITIES:
     st.session_state.setdefault(f"saved_{k}",      False)
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("iSTEP Exercise Tracker")
 st.markdown(
-    f"<p style='font-size:1rem; margin-top:-8px;'>"
+    "<h1 style='font-size:1.6rem; white-space:nowrap; margin-bottom:4px;'>"
+    "iSTEP Exercise Tracker</h1>",
+    unsafe_allow_html=True
+)
+st.markdown(
+    f"<p style='font-size:0.85rem; margin-top:0; white-space:nowrap; "
+    f"overflow:hidden; text-overflow:ellipsis;'>"
     f"Participant &nbsp;<strong>{subject_id}</strong>"
-    f"&nbsp;&nbsp;·&nbsp;&nbsp;"
+    f"&nbsp;·&nbsp;"
     f"Week <strong>{current_week}</strong> of {STUDY_WEEKS}"
-    f"&nbsp;&nbsp;·&nbsp;&nbsp;"
+    f"&nbsp;·&nbsp;"
     f"<strong>{today.strftime('%A, %B %d, %Y')}</strong>"
     f"</p>",
     unsafe_allow_html=True
@@ -153,11 +178,19 @@ with tab1:
             secs_d = int(display_secs % 60)
 
             st.markdown("<div class='activity-card'>", unsafe_allow_html=True)
+
+            # Icon and name on one line
             if act.get("img"):
-                st.image(act["img"], width=64)
+                icon_html = img_to_html(act["img"], height="2rem")
             else:
-                st.markdown(f"<div class='activity-icon'>{act['icon']}</div>", unsafe_allow_html=True)
-            st.markdown(f"**{act['name']}**")
+                icon_html = f'<span class="act-emoji">{act["icon"]}</span>'
+            st.markdown(
+                f"<div class='activity-header'>"
+                f"{icon_html}"
+                f"<span class='act-name'>{act['name']}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
 
             if saved:
                 st.markdown(
