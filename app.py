@@ -78,14 +78,17 @@ def load_goals(pid: str) -> pd.DataFrame:
         ])
     return pd.DataFrame(res.data)
 
-def save_activity(pid: str, activity_type: str, duration_minutes: float):
+def save_activity(pid: str, activity_type: str, duration_minutes: float,
+                  used_resource: str, synchrony: str):
     sb = get_supabase()
     sb.table("activities").insert({
-        "subject_id":   pid,
+        "subject_id":       pid,
         "date":             date.today().isoformat(),
         "activity_type":    activity_type,
         "duration_minutes": round(duration_minutes, 2),
-        "timestamp":        datetime.now().isoformat()
+        "timestamp":        datetime.now().isoformat(),
+        "used_resource":    used_resource,
+        "synchrony":        synchrony
     }).execute()
 
 def save_goal(pid: str, week_number: int, week_start: str,
@@ -120,18 +123,20 @@ week_end_date   = week_start_date + timedelta(days=6)
 
 # ── Activity definitions ──────────────────────────────────────────────────────
 ACTIVITIES = [
-    {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength"},
-    {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps"},
-    {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog"},
+    {"name": "Strength Training", "icon": "🏋️", "img": None,              "color": "#7F77DD", "key": "strength",  "resource_label": "Did you use the iSTEP video tutorial?"},
+    {"name": "Aerobic Steps",     "icon": "🏃", "img": "image-steps.png", "color": "#1D9E75", "key": "aero_steps","resource_label": "Did you use the iSTEP audio playlist?"},
+    {"name": "Walk & Jog",        "icon": "🚶", "img": "image-jog.png",   "color": "#EF9F27", "key": "walk_jog",  "resource_label": "Did you use the iSTEP audio playlist?"},
 ]
 
 # ── Session state init ────────────────────────────────────────────────────────
 for act in ACTIVITIES:
     k = act["key"]
-    st.session_state.setdefault(f"running_{k}",    False)
-    st.session_state.setdefault(f"start_time_{k}", None)
-    st.session_state.setdefault(f"elapsed_{k}",    0.0)
-    st.session_state.setdefault(f"saved_{k}",      False)
+    st.session_state.setdefault(f"running_{k}",      False)
+    st.session_state.setdefault(f"start_time_{k}",   None)
+    st.session_state.setdefault(f"elapsed_{k}",      0.0)
+    st.session_state.setdefault(f"saved_{k}",        False)
+    st.session_state.setdefault(f"used_resource_{k}", "Yes")
+    st.session_state.setdefault(f"synchrony_{k}",    "Moderately")
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
@@ -219,6 +224,19 @@ with tab1:
                         st.rerun()
                 else:
                     if elapsed > 0:
+                        # ── Follow-up questions (shown after stopping) ──
+                        used_resource = st.radio(
+                            act["resource_label"],
+                            ["Yes", "No"],
+                            key=f"used_resource_{k}",
+                            horizontal=True
+                        )
+                        synchrony = st.selectbox(
+                            "Synchrony between exercise tempo and auditory cues:",
+                            ["Not at all", "Slightly", "Moderately",
+                             "Mostly", "Completely"],
+                            key=f"synchrony_{k}"
+                        )
                         c1, c2 = st.columns(2)
                         with c1:
                             if st.button("▶ Resume", key=f"resume_{k}",
@@ -232,7 +250,10 @@ with tab1:
                             if st.button("💾 Save", key=f"save_{k}",
                                          use_container_width=True, type="primary"):
                                 try:
-                                    save_activity(subject_id, act["name"], elapsed)
+                                    save_activity(
+                                        subject_id, act["name"], elapsed,
+                                        used_resource, synchrony
+                                    )
                                     st.session_state[f"saved_{k}"]   = True
                                     st.session_state[f"elapsed_{k}"] = 0.0
                                     st.rerun()
@@ -284,7 +305,9 @@ with tab1:
 # TAB 2 — WEEKLY GOALS
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.subheader(f"Set Goals for Week {current_week} ({week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')})"
+    st.subheader(
+        f"Set Goals for Week {current_week} "
+        f"({week_start_date.strftime('%b %d')} – {week_end_date.strftime('%b %d, %Y')})"
     )
 
     try:
@@ -299,21 +322,24 @@ with tab2:
         df_goals = pd.DataFrame()
         existing = pd.DataFrame()
 
-    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 30
+    default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 60
     default_aerobic  = int(existing["aerobic_goal"].values[0])  if not existing.empty else 150
 
     with st.form("goal_form"):
-        st.markdown("**Minutes per week target:**")
-        gc1, gc2, gc3 = st.columns(3)
+        gc1, gc2 = st.columns(2)
         with gc1:
+            st.markdown("**💪 Strength Training**")
+            st.caption("Minutes per week")
             strength_goal = st.number_input(
-                "💪 Strength Training", min_value=0, max_value=840,
-                value=default_strength, step=5
+                "Minutes/week", min_value=0, max_value=840,
+                value=default_strength, step=5, label_visibility="collapsed"
             )
         with gc2:
+            st.markdown("**🏃 Aerobic Training**")
+            st.caption("Minutes per week")
             aerobic_goal = st.number_input(
-                "🏃 Aerobic Exercise", min_value=0, max_value=840,
-                value=default_aerobic, step=5
+                "Minutes/week", min_value=0, max_value=840,
+                value=default_aerobic, step=5, label_visibility="collapsed"
             )
         if st.form_submit_button(
             "💾 Save Goals for This Week",
@@ -341,7 +367,7 @@ with tab2:
             ]].copy()
             disp.columns = [
                 "Week", "Week Starting",
-                "💪 Strength (min)", "🏃 Aerobic (min)",
+                "💪 Strength (min)", "🏃 Aerobic Training (min)",
             ]
             disp["Week"] = pd.to_numeric(disp["Week"])
             st.dataframe(
@@ -417,10 +443,9 @@ with tab3:
                 df_goals_prog["week_number"] = pd.to_numeric(
                     df_goals_prog["week_number"], errors="coerce"
                 )
-                # Only overlay aerobic goal (minutes) — strength goal is in sessions,
-                # a different unit, so it is not plotted on the minutes axis
                 for col, act_name, color in [
-                    ("aerobic_goal", "Aerobic Training", "#1D9E75"),
+                    ("strength_goal", "Strength Training", "#7F77DD"),
+                    ("aerobic_goal",  "Aerobic Training",  "#1D9E75"),
                 ]:
                     df_goals_prog[col] = pd.to_numeric(
                         df_goals_prog[col], errors="coerce"
