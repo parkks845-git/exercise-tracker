@@ -136,7 +136,7 @@ def img_to_html(path: str, height: str = "2rem") -> str:
 
 # ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
-STUDY_START  = date(2026, 5, 1)
+STUDY_START  = date(2026, 4, 20)
 STUDY_WEEKS  = 32   # ~8 months, used for progress chart x-axis
 STUDY_MONTHS = 8
 
@@ -348,7 +348,7 @@ with tab1:
 with tab2:
     st.subheader(f"Set SMART Goals for Month {current_month}")
     st.markdown(
-        f"<p style='font-size:0.95rem; color:var(--color-text-secondary);'>"
+        f"<p style='font-size:1.2rem; color:var(--color-text-secondary);'>"
         f"{month_start_date.strftime('%B %d')} – {month_end_date.strftime('%B %d, %Y')}"
         f"</p>",
         unsafe_allow_html=True
