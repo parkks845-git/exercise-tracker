@@ -154,7 +154,7 @@ with tab1:
 
             st.markdown("<div class='activity-card'>", unsafe_allow_html=True)
             if act.get("img"):
-                st.image(act["img"], width=90)
+                st.image(act["img"], width=72)
             else:
                 st.markdown(f"<div class='activity-icon'>{act['icon']}</div>", unsafe_allow_html=True)
             st.markdown(f"**{act['name']}**")
