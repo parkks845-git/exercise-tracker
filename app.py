@@ -36,11 +36,11 @@ st.markdown("""
     gap: 8px;
     margin-bottom: 4px;
 }
-.activity-header img   { height: 2rem; width: auto; }
+.activity-header img   { height: 2.5rem; width: auto; }
 .activity-header .act-emoji { font-size: 2rem; line-height: 1; }
 .activity-header .act-name  { font-size: 1rem; font-weight: 600; }
 [data-testid="stAppViewContainer"] > .main > div:first-child {
-    padding-top: 0.5rem;
+    padding-top: 0.1rem;
 }
 [data-testid="stHeader"] { display: none; }
 </style>
