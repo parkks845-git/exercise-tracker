@@ -35,9 +35,9 @@ st.markdown("""
 
 # ── Participant ID from URL ───────────────────────────────────────────────────
 params = st.query_params
-participant_id = params.get("id", None)
+subject_id = params.get("id", None)
 
-if not participant_id:
+if not subject_id:
     st.error("⚠️ No participant ID found in the URL. Please use your personal study link.")
     st.info("Your link should look like: `https://your-app.streamlit.app?id=P001`")
     st.stop()
@@ -52,27 +52,27 @@ def get_supabase() -> Client:
 
 def load_activities(pid: str) -> pd.DataFrame:
     sb = get_supabase()
-    res = sb.table("activities").select("*").eq("participant_id", pid).execute()
+    res = sb.table("activities").select("*").eq("subject_id", pid).execute()
     if not res.data:
         return pd.DataFrame(columns=[
-            "participant_id", "date", "activity_type", "duration_minutes", "timestamp"
+            "subject_id", "date", "activity_type", "duration_minutes", "timestamp"
         ])
     return pd.DataFrame(res.data)
 
 def load_goals(pid: str) -> pd.DataFrame:
     sb = get_supabase()
-    res = sb.table("goals").select("*").eq("participant_id", pid).execute()
+    res = sb.table("goals").select("*").eq("subject_id", pid).execute()
     if not res.data:
         return pd.DataFrame(columns=[
-            "participant_id", "week_number", "week_start",
-            "strength_goal", "aerobic_goal", "walking_goal"
+            "subject_id", "week_number", "week_start",
+            "strength_goal", "aerobic_goal"
         ])
     return pd.DataFrame(res.data)
 
 def save_activity(pid: str, activity_type: str, duration_minutes: float):
     sb = get_supabase()
     sb.table("activities").insert({
-        "participant_id":   pid,
+        "subject_id":   pid,
         "date":             date.today().isoformat(),
         "activity_type":    activity_type,
         "duration_minutes": round(duration_minutes, 2),
@@ -80,20 +80,19 @@ def save_activity(pid: str, activity_type: str, duration_minutes: float):
     }).execute()
 
 def save_goal(pid: str, week_number: int, week_start: str,
-              strength_goal: int, aerobic_goal: int, walking_goal: int):
+              strength_goal: int, aerobic_goal: int):
     sb = get_supabase()
     sb.table("goals").upsert({
-        "participant_id": pid,
-        "week_number":    week_number,
-        "week_start":     week_start,
-        "strength_goal":  strength_goal,
-        "aerobic_goal":   aerobic_goal,
-        "walking_goal":   walking_goal
-    }, on_conflict="participant_id,week_number").execute()
+        "subject_id":    pid,
+        "week_number":   week_number,
+        "week_start":    week_start,
+        "strength_goal": strength_goal,
+        "aerobic_goal":  aerobic_goal,
+    }, on_conflict="subject_id,week_number").execute()
 
 # ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
-STUDY_START = date(2025, 1, 6)
+STUDY_START = date(2026, 5, 1)
 STUDY_WEEKS = 35  # ~8 months
 
 today           = date.today()
@@ -104,9 +103,12 @@ week_end_date   = week_start_date + timedelta(days=6)
 # ── Activity definitions ──────────────────────────────────────────────────────
 ACTIVITIES = [
     {"name": "Strength Training", "icon": "💪", "color": "#7F77DD", "key": "strength"},
-    {"name": "Aerobic Exercise",  "icon": "🏃", "color": "#1D9E75", "key": "aerobic"},
-    {"name": "Walking / Jogging", "icon": "🚶", "color": "#EF9F27", "key": "walking"},
+    {"name": "Aerobic Steps",     "icon": "🏃", "color": "#1D9E75", "key": "aero_steps"},
+    {"name": "Walk-n-Jog",        "icon": "🚶", "color": "#EF9F27", "key": "walk_jog"},
 ]
+
+# Activities that combine into the aerobic goal/progress line
+AEROBIC_ACTIVITIES = {"Aerobic Steps", "Walk-n-Jog"}
 
 # ── Session state init ────────────────────────────────────────────────────────
 for act in ACTIVITIES:
@@ -119,7 +121,7 @@ for act in ACTIVITIES:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("🏋️ Exercise Tracker")
 st.caption(
-    f"Participant **{participant_id}**  ·  "
+    f"Participant **{subject_id}**  ·  "
     f"Week {current_week} of {STUDY_WEEKS}  ·  "
     f"{today.strftime('%A, %B %d, %Y')}"
 )
@@ -194,7 +196,7 @@ with tab1:
                             if st.button("💾 Save", key=f"save_{k}",
                                          use_container_width=True, type="primary"):
                                 try:
-                                    save_activity(participant_id, act["name"], elapsed)
+                                    save_activity(subject_id, act["name"], elapsed)
                                     st.session_state[f"saved_{k}"]   = True
                                     st.session_state[f"elapsed_{k}"] = 0.0
                                     st.rerun()
@@ -223,7 +225,7 @@ with tab1:
     st.divider()
     st.subheader("Today's Log")
     try:
-        df_today = load_activities(participant_id)
+        df_today = load_activities(subject_id)
         if not df_today.empty:
             today_rows = df_today[df_today["date"] == today.isoformat()].copy()
             if not today_rows.empty:
@@ -253,7 +255,7 @@ with tab2:
     )
 
     try:
-        df_goals = load_goals(participant_id)
+        df_goals = load_goals(subject_id)
         existing = pd.DataFrame()
         if not df_goals.empty:
             df_goals["week_number"] = pd.to_numeric(
@@ -266,7 +268,6 @@ with tab2:
 
     default_strength = int(existing["strength_goal"].values[0]) if not existing.empty else 60
     default_aerobic  = int(existing["aerobic_goal"].values[0])  if not existing.empty else 150
-    default_walking  = int(existing["walking_goal"].values[0])  if not existing.empty else 90
 
     with st.form("goal_form"):
         st.markdown("**Minutes per week target:**")
@@ -278,13 +279,8 @@ with tab2:
             )
         with gc2:
             aerobic_goal = st.number_input(
-                "🏃 Aerobic Exercise", min_value=0, max_value=840,
+                "🏃 Aerobic Training (Steps + Walk-n-Jog)", min_value=0, max_value=840,
                 value=default_aerobic, step=5
-            )
-        with gc3:
-            walking_goal = st.number_input(
-                "🚶 Walking / Jogging", min_value=0, max_value=840,
-                value=default_walking, step=5
             )
         if st.form_submit_button(
             "💾 Save Goals for This Week",
@@ -292,9 +288,9 @@ with tab2:
         ):
             try:
                 save_goal(
-                    participant_id, current_week,
+                    subject_id, current_week,
                     week_start_date.isoformat(),
-                    int(strength_goal), int(aerobic_goal), int(walking_goal)
+                    int(strength_goal), int(aerobic_goal)
                 )
                 st.success(f"✅ Goals saved for Week {current_week}!")
                 st.rerun()
@@ -304,15 +300,15 @@ with tab2:
     st.divider()
     st.subheader("All Weekly Goals")
     try:
-        df_goals_all = load_goals(participant_id)
+        df_goals_all = load_goals(subject_id)
         if not df_goals_all.empty:
             disp = df_goals_all[[
                 "week_number", "week_start",
-                "strength_goal", "aerobic_goal", "walking_goal"
+                "strength_goal", "aerobic_goal"
             ]].copy()
             disp.columns = [
                 "Week", "Week Starting",
-                "💪 Strength (min)", "🏃 Aerobic (min)", "🚶 Walking (min)"
+                "💪 Strength (min)", "🏃 Aerobic Training (min)",
             ]
             disp["Week"] = pd.to_numeric(disp["Week"])
             st.dataframe(
@@ -330,8 +326,8 @@ with tab3:
     st.subheader("My Progress — 8 Months")
 
     try:
-        df_acts_prog  = load_activities(participant_id)
-        df_goals_prog = load_goals(participant_id)
+        df_acts_prog  = load_activities(subject_id)
+        df_goals_prog = load_goals(subject_id)
 
         if df_acts_prog.empty:
             st.info(
@@ -347,54 +343,63 @@ with tab3:
                 (df_acts_prog["date"] - pd.Timestamp(STUDY_START)).dt.days // 7
             ) + 1
 
+            # Combine Aerobic Steps + Walk-n-Jog into a single "Aerobic Training" line
+            df_acts_prog["chart_group"] = df_acts_prog["activity_type"].apply(
+                lambda x: "Aerobic Training" if x in AEROBIC_ACTIVITIES else x
+            )
+
             weekly_totals = (
                 df_acts_prog
-                .groupby(["week_number", "activity_type"])["duration_minutes"]
+                .groupby(["week_number", "chart_group"])["duration_minutes"]
                 .sum()
                 .reset_index()
             )
 
-            fig      = go.Figure()
-            act_meta = {a["name"]: a for a in ACTIVITIES}
+            # Chart lines: Strength Training + combined Aerobic Training
+            CHART_LINES = [
+                {"name": "Strength Training", "color": "#7F77DD"},
+                {"name": "Aerobic Training",  "color": "#1D9E75"},
+            ]
 
-            for act in ACTIVITIES:
-                act_data = weekly_totals[weekly_totals["activity_type"] == act["name"]]
-                if not act_data.empty:
+            fig = go.Figure()
+
+            for line in CHART_LINES:
+                line_data = weekly_totals[weekly_totals["chart_group"] == line["name"]]
+                if not line_data.empty:
                     fig.add_trace(go.Scatter(
-                        x=act_data["week_number"],
-                        y=act_data["duration_minutes"],
-                        name=act["name"],
+                        x=line_data["week_number"],
+                        y=line_data["duration_minutes"],
+                        name=line["name"],
                         mode="lines+markers",
-                        line=dict(color=act["color"], width=2.5),
-                        marker=dict(size=7, color=act["color"]),
+                        line=dict(color=line["color"], width=2.5),
+                        marker=dict(size=7, color=line["color"]),
                         hovertemplate=(
-                            f"<b>{act['name']}</b><br>"
+                            f"<b>{line['name']}</b><br>"
                             "Week %{x}<br>%{y:.0f} min<extra></extra>"
                         )
                     ))
 
+            # Goal overlay (dashed)
             if not df_goals_prog.empty:
                 df_goals_prog["week_number"] = pd.to_numeric(
                     df_goals_prog["week_number"], errors="coerce"
                 )
-                for col, act_name in [
-                    ("strength_goal", "Strength Training"),
-                    ("aerobic_goal",  "Aerobic Exercise"),
-                    ("walking_goal",  "Walking / Jogging"),
+                for col, label, color in [
+                    ("strength_goal", "Strength goal", "#7F77DD"),
+                    ("aerobic_goal",  "Aerobic Training goal", "#1D9E75"),
                 ]:
-                    color = act_meta[act_name]["color"]
                     df_goals_prog[col] = pd.to_numeric(
                         df_goals_prog[col], errors="coerce"
                     )
                     fig.add_trace(go.Scatter(
                         x=df_goals_prog["week_number"],
                         y=df_goals_prog[col],
-                        name=f"{act_name} goal",
+                        name=label,
                         mode="lines",
                         line=dict(color=color, width=1.5, dash="dash"),
                         opacity=0.45,
                         hovertemplate=(
-                            f"<b>{act_name} goal</b><br>"
+                            f"<b>{label}</b><br>"
                             "Week %{x}<br>%{y:.0f} min<extra></extra>"
                         )
                     ))
@@ -445,6 +450,14 @@ with tab3:
                         value=f"{total:.0f} min total",
                         delta=f"{total / max(weeks, 1):.0f} min/week avg"
                     )
+            # Combined aerobic summary
+            aerobic_df = df_acts_prog[df_acts_prog["activity_type"].isin(AEROBIC_ACTIVITIES)]
+            aerobic_total = aerobic_df["duration_minutes"].sum()
+            aerobic_weeks = aerobic_df["week_number"].nunique()
+            st.info(
+                f"🏃 Combined Aerobic Training total: **{aerobic_total:.0f} min** "
+                f"({aerobic_total / max(aerobic_weeks, 1):.0f} min/week avg)"
+            )
 
     except Exception as e:
         st.error(f"Could not load progress data: {e}")
