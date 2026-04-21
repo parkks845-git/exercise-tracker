@@ -87,11 +87,12 @@ def load_goals(pid: str) -> pd.DataFrame:
     return pd.DataFrame(res.data)
 
 def save_activity(pid: str, activity_type: str, duration_minutes: float,
-                  used_resource: str, synchrony: str):
+                  used_resource: str, synchrony: str,
+                  log_date: str = None):
     sb = get_supabase()
     sb.table("activities").insert({
         "subject_id":       pid,
-        "date":             date.today().isoformat(),
+        "date":             log_date if log_date else date.today().isoformat(),
         "activity_type":    activity_type,
         "duration_minutes": round(duration_minutes, 2),
         "timestamp":        datetime.now().isoformat(),
@@ -99,7 +100,7 @@ def save_activity(pid: str, activity_type: str, duration_minutes: float,
         "synchrony":        synchrony
     }).execute()
 
-def save_goal(pid: str, month_number: int, month_start: str,
+def save_goal(pid: str, block_number: int, block_start: str,
               strength_goal: int, aerobic_goal: int,
               s_location: str, s_days_per_week: int, s_days: str,
               s_time: str, s_duration: int,
@@ -108,8 +109,8 @@ def save_goal(pid: str, month_number: int, month_start: str,
     sb = get_supabase()
     sb.table("goals").upsert({
         "subject_id":            pid,
-        "month_number":          month_number,
-        "month_start":           month_start,
+        "month_number":          block_number,
+        "month_start":           block_start,
         "strength_goal":         strength_goal,
         "aerobic_goal":          aerobic_goal,
         "strength_location":     s_location,
@@ -136,27 +137,28 @@ def img_to_html(path: str, height: str = "2rem") -> str:
 
 # ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
-STUDY_START = date.fromisoformat(st.secrets["STUDY_START"])
+STUDY_START  = date.fromisoformat(st.secrets["STUDY_START"])
 STUDY_WEEKS  = 32   # ~8 months, used for progress chart x-axis
-STUDY_MONTHS = 8
+STUDY_BLOCKS = 8    # 8 × 4-week blocks
 
 today        = date.today()
 
 # Week-level (for progress chart and header)
-current_week    = max(1, min(STUDY_WEEKS, ((today - STUDY_START).days // 7) + 1))
+current_week = max(1, min(STUDY_WEEKS, ((today - STUDY_START).days // 7) + 1))
 
-# Month-level (for goal setting)
-_months_elapsed = (today.year - STUDY_START.year) * 12 + (today.month - STUDY_START.month)
-current_month   = max(1, min(STUDY_MONTHS, _months_elapsed + 1))
-_target_month   = STUDY_START.month + current_month - 1
-_target_year    = STUDY_START.year + (_target_month - 1) // 12
-_target_month   = ((_target_month - 1) % 12) + 1
-month_start_date = date(_target_year, _target_month, 1)
-month_end_date   = date(_target_year, _target_month,
-                        calendar.monthrange(_target_year, _target_month)[1])
+# 4-week block level (for SMART goal setting)
+current_block    = max(1, min(STUDY_BLOCKS, ((today - STUDY_START).days // 28) + 1))
+block_start_date = STUDY_START + timedelta(weeks=(current_block - 1) * 4)
+block_end_date   = block_start_date + timedelta(days=27)
 
-week_start_date = STUDY_START + timedelta(weeks=current_week - 1)
-week_end_date   = week_start_date + timedelta(days=6)
+week_start_date  = STUDY_START + timedelta(weeks=current_week - 1)
+week_end_date    = week_start_date + timedelta(days=6)
+
+# Aerobic training guidance (min/week) by 4-week block
+AEROBIC_GUIDANCE = {1: 80, 2: 100, 3: 120, 4: 140}   # block 5+ = 160
+def aerobic_guidance_for_week(w: int) -> int:
+    block = ((w - 1) // 4) + 1
+    return AEROBIC_GUIDANCE.get(block, 160)
 
 # ── Activity definitions ──────────────────────────────────────────────────────
 ACTIVITIES = [
@@ -194,7 +196,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 Monthly Goals", "📈 My Progress"])
+tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 SMART Goals", "📈 My Progress"])
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TAB 1 — LOG ACTIVITY
@@ -342,19 +344,88 @@ with tab1:
     except Exception as e:
         st.warning(f"Could not load today's log: {e}")
 
+    # ════════════════════════════════════════════════════════════════════════
+    # RETROSPECTIVE LOGGING
+    # ════════════════════════════════════════════════════════════════════════
+    st.divider()
+    st.subheader("Record Past Activities")
+    st.caption("Forgot to use the timer? Log a past session here.")
+
+    RETRO_ACTIVITIES = [a["name"] for a in ACTIVITIES]
+    RETRO_RESOURCE_MAP = {a["name"]: a["resource_label"] for a in ACTIVITIES}
+
+    with st.form("retro_form"):
+        rc1, rc2 = st.columns(2)
+        with rc1:
+            retro_date = st.date_input(
+                "Date of activity",
+                value=today,
+                min_value=STUDY_START,
+                max_value=today,
+                key="retro_date"
+            )
+            retro_activity = st.selectbox(
+                "Activity type",
+                RETRO_ACTIVITIES,
+                key="retro_activity"
+            )
+            retro_duration = st.number_input(
+                "Duration (minutes)",
+                min_value=1, max_value=480,
+                value=30, step=5,
+                key="retro_duration"
+            )
+        with rc2:
+            retro_resource_label = RETRO_RESOURCE_MAP.get(
+                st.session_state.get("retro_activity", RETRO_ACTIVITIES[0]),
+                "Did you use the iSTEP resource?"
+            )
+            retro_used_resource = st.radio(
+                retro_resource_label,
+                ["Yes", "No"],
+                horizontal=True,
+                key="retro_used_resource"
+            )
+            if retro_used_resource == "Yes":
+                retro_synchrony = st.selectbox(
+                    "Synchrony between exercise tempo and auditory cues:",
+                    ["Not at all", "Slightly", "Moderately", "Mostly", "Completely"],
+                    key="retro_synchrony"
+                )
+            else:
+                retro_synchrony = "N/A"
+
+        if st.form_submit_button(
+            "💾 Save Past Activity",
+            use_container_width=True, type="primary"
+        ):
+            try:
+                save_activity(
+                    subject_id, retro_activity, float(retro_duration),
+                    retro_used_resource, retro_synchrony,
+                    log_date=retro_date.isoformat()
+                )
+                st.success(
+                    f"✅ Saved {retro_duration} min of {retro_activity} "
+                    f"on {retro_date.strftime('%b %d, %Y')}!"
+                )
+            except Exception as e:
+                st.error(f"Could not save: {e}")
+
 # ════════════════════════════════════════════════════════════════════════════════
-# TAB 2 — MONTHLY SMART GOALS
+# TAB 2 — SMART GOALS
 # ════════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.subheader(f"Set SMART Goals for Month {current_month}")
+    st.subheader("Set SMART Goals for the Next 4 Weeks")
     st.markdown(
         f"<p style='font-size:1.2rem; color:var(--color-text-secondary);'>"
-        f"{month_start_date.strftime('%B %d')} – {month_end_date.strftime('%B %d, %Y')}"
+        f"{block_start_date.strftime('%B %d')} – {block_end_date.strftime('%B %d, %Y')} "
+        f"(Block {current_block} of {STUDY_BLOCKS})"
         f"</p>",
         unsafe_allow_html=True
-)
+    )
 
-    # ── Load existing goals for this month ────────────────────────────────────
+    # ── Load existing goals for this block ───────────────────────────────────
     try:
         df_goals = load_goals(subject_id)
         existing = pd.DataFrame()
@@ -362,7 +433,7 @@ with tab2:
             df_goals["month_number"] = pd.to_numeric(
                 df_goals["month_number"], errors="coerce"
             )
-            existing = df_goals[df_goals["month_number"] == current_month]
+            existing = df_goals[df_goals["month_number"] == current_block]
     except Exception:
         df_goals  = pd.DataFrame()
         existing  = pd.DataFrame()
@@ -382,10 +453,15 @@ with tab2:
     LOCATION_OPTIONS = ["Emory gym", "Home gym", "Other"]
     DAY_OPTIONS      = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+    # Aerobic guidance for the current block's first week
+    block_first_week     = (current_block - 1) * 4 + 1
+    current_aerobic_guid = aerobic_guidance_for_week(block_first_week)
+
     with st.form("goal_form"):
 
         # ── Strength Training ─────────────────────────────────────────────────
         st.markdown("#### 💪 Strength Training")
+        st.caption("The guidance is 15 minutes/session for 2–3 sessions/week.")
         gc1, gc2 = st.columns(2)
         with gc1:
             s_location = st.multiselect(
@@ -416,7 +492,7 @@ with tab2:
             s_duration = st.number_input(
                 "How long per session (minutes)?",
                 min_value=0, max_value=240,
-                value=int(get_val("strength_duration", 30)), step=5,
+                value=int(get_val("strength_duration", 15)), step=5,
                 key="s_duration"
             )
             s_weekly = s_days_pw * s_duration
@@ -427,6 +503,10 @@ with tab2:
 
         # ── Aerobic Training ──────────────────────────────────────────────────
         st.markdown("#### 🏃 Aerobic Training")
+        st.caption(
+            f"The guidance is {current_aerobic_guid} minutes/week "
+            f"at moderate intensity."
+        )
         ac1, ac2 = st.columns(2)
         with ac1:
             a_location = st.multiselect(
@@ -465,27 +545,27 @@ with tab2:
                       help="Days per week × minutes per session")
 
         if st.form_submit_button(
-            "💾 Save Goals for This Month",
+            "💾 Save Goals for the Next 4 Weeks",
             use_container_width=True, type="primary"
         ):
             try:
                 save_goal(
-                    subject_id, current_month,
-                    month_start_date.isoformat(),
+                    subject_id, current_block,
+                    block_start_date.isoformat(),
                     int(s_weekly), int(a_weekly),
                     ",".join(s_location), int(s_days_pw), ",".join(s_days),
                     s_time, int(s_duration),
                     ",".join(a_location), int(a_days_pw), ",".join(a_days),
                     a_time, int(a_duration)
                 )
-                st.success(f"✅ Goals saved for Month {current_month}!")
+                st.success(f"✅ Goals saved for Block {current_block}!")
                 st.rerun()
             except Exception as e:
                 st.error(f"Could not save goals: {e}")
 
-    # ── All monthly goals table ───────────────────────────────────────────────
+    # ── All goals table ───────────────────────────────────────────────────────
     st.divider()
-    st.subheader("All Monthly Goals")
+    st.subheader("All SMART Goals")
     try:
         df_goals_all = load_goals(subject_id)
         if not df_goals_all.empty and "month_number" in df_goals_all.columns:
@@ -495,13 +575,13 @@ with tab2:
                 "aerobic_days_per_week",  "aerobic_duration",  "aerobic_goal"
             ]].copy()
             disp.columns = [
-                "Month", "Month Starting",
+                "Block", "Block Starting",
                 "💪 Days/wk", "💪 Min/session", "💪 Weekly total (min)",
                 "🏃 Days/wk", "🏃 Min/session", "🏃 Weekly total (min)"
             ]
-            disp["Month"] = pd.to_numeric(disp["Month"])
+            disp["Block"] = pd.to_numeric(disp["Block"])
             st.dataframe(
-                disp.sort_values("Month"), use_container_width=True, hide_index=True
+                disp.sort_values("Block"), use_container_width=True, hide_index=True
             )
         else:
             st.caption("No goals set yet. Use the form above to get started.")
@@ -545,9 +625,9 @@ with tab3:
                 .reset_index()
             )
 
-            # Two chart lines: Strength Training + Aerobic Training
+            # Two chart lines: Strength Training (red) + Aerobic Training (teal)
             CHART_LINES = [
-                {"name": "Strength Training", "color": "#7F77DD"},
+                {"name": "Strength Training", "color": "#E24B4A"},
                 {"name": "Aerobic Training",  "color": "#1D9E75"},
             ]
 
@@ -568,6 +648,21 @@ with tab3:
                             "Week %{x}<br>%{y:.0f} min<extra></extra>"
                         )
                     ))
+
+            # Aerobic Training Guidance line (solid grey, progressive)
+            guidance_weeks = list(range(1, STUDY_WEEKS + 1))
+            guidance_vals  = [aerobic_guidance_for_week(w) for w in guidance_weeks]
+            fig.add_trace(go.Scatter(
+                x=guidance_weeks,
+                y=guidance_vals,
+                name="Aerobic Training Guidance",
+                mode="lines",
+                line=dict(color="#888780", width=2),
+                hovertemplate=(
+                    "<b>Aerobic Training Guidance</b><br>"
+                    "Week %{x}<br>%{y:.0f} min/week<extra></extra>"
+                )
+            ))
 
             if not df_goals_prog.empty and "month_number" in df_goals_prog.columns:
                 df_goals_prog["month_number"] = pd.to_numeric(
@@ -632,7 +727,9 @@ with tab3:
 
             st.plotly_chart(fig, use_container_width=True)
             st.caption(
-                "Solid lines = actual minutes logged · Dashed lines = weekly goals"
+                "Solid lines = actual minutes logged · "
+                "Dashed lines = weekly goals · "
+                "Grey line = aerobic training guidance"
             )
 
             st.divider()
@@ -645,7 +742,7 @@ with tab3:
                 st_tot = st_df["duration_minutes"].sum()
                 st_wks = st_df["week_number"].nunique()
                 st.metric(
-                    label="💪 Strength Training",
+                    label="🏋️ Strength Training",
                     value=f"{st_tot:.0f} min total",
                     delta=f"{st_tot / max(st_wks, 1):.0f} min/week avg"
                 )
