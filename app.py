@@ -8,7 +8,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 st.set_page_config(
-    page_title="iSTEP Exercise Tracker",
+    page_title="Exercise Journal and Tracker",
     layout="wide"
 )
 
