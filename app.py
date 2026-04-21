@@ -179,7 +179,7 @@ for act in ACTIVITIES:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
     "<h1 style='font-size:1.6rem; white-space:nowrap; margin-bottom:4px;'>"
-    "iSTEP Exercise Tracker</h1>",
+    "Exercise Journal and Tracker</h1>",
     unsafe_allow_html=True
 )
 st.markdown(
