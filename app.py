@@ -378,7 +378,7 @@ with tab1:
             retro_date = st.date_input(
                 "Date of activity",
                 value=today,
-                min_value=STUDY_START,
+                min_value=min(STUDY_START, today),
                 max_value=today,
                 key="retro_date"
             )
@@ -416,7 +416,8 @@ with tab1:
         if st.form_submit_button(
             "💾 Save Past Activity",
             use_container_width=True, type="primary"
-        ):
+        )
+        if submitted:
             try:
                 save_activity(
                     subject_id, retro_activity, float(retro_duration),
