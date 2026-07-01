@@ -8,7 +8,7 @@ import calendar
 from datetime import datetime, date, timedelta
 
 st.set_page_config(
-    page_title="Exercise Journal and Tracker",
+    page_title="Exercise Log and Tracker",
     layout="wide"
 )
 
@@ -135,9 +135,27 @@ def img_to_html(path: str, height: str = "2rem") -> str:
     except Exception:
         return ""
 
-# ── Study configuration ───────────────────────────────────────────────────────
 # !! Update STUDY_START to your actual study start date !!
-STUDY_START  = date.fromisoformat(st.secrets["STUDY_START"])
+# ── Load participant config from Supabase ─────────────────────────────────────
+@st.cache_data(ttl=3600)
+def load_participant(pid: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("participants").select("*").eq("subject_id", pid).execute()
+    if not res.data:
+        return None
+    return res.data[0]
+
+participant = load_participant(subject_id)
+
+if not participant:
+    st.error(
+        f"⚠️ Participant ID **{subject_id}** was not found. "
+        "Please contact the research team."
+    )
+    st.stop()
+
+STUDY_START  = date.fromisoformat(participant["study_start"])
+COHORT       = participant["cohort"]
 STUDY_WEEKS  = 32   # ~8 months, used for progress chart x-axis
 STUDY_BLOCKS = 8    # 8 × 4-week blocks
 
@@ -184,14 +202,14 @@ st.markdown(
     "Exercise Journal and Tracker</h1>",
     unsafe_allow_html=True
 )
+
 st.markdown(
     f"<p style='font-size:0.85rem; margin-top:0; white-space:nowrap; "
     f"overflow:hidden; text-overflow:ellipsis;'>"
     f"Participant &nbsp;<strong>{subject_id}</strong>"
-    f"&nbsp;·&nbsp;"
-    f"Week <strong>{current_week}</strong> of {STUDY_WEEKS}"
-    f"&nbsp;·&nbsp;"
-    f"<strong>{today.strftime('%A, %B %d, %Y')}</strong>"
+    f"&nbsp;·&nbsp;Cohort <strong>{COHORT}</strong>"
+    f"&nbsp;·&nbsp;Week <strong>{current_week}</strong> of {STUDY_WEEKS}"
+    f"&nbsp;·&nbsp;<strong>{today.strftime('%A, %B %d, %Y')}</strong>"
     f"</p>",
     unsafe_allow_html=True
 )
