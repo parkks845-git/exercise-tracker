@@ -52,7 +52,7 @@ subject_id = params.get("id", None)
 
 if not subject_id:
     st.error("⚠️ No participant ID found in the URL. Please use your personal study link.")
-    st.info("Your link should look like: `https://your-app.streamlit.app?id=P001`")
+    st.info("Your link should look like: `https://your-app.streamlit.app?id=1000`")
     st.stop()
 
 # ── Supabase connection ───────────────────────────────────────────────────────
