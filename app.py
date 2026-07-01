@@ -413,7 +413,7 @@ with tab1:
             else:
                 retro_synchrony = "N/A"
 
-        if st.form_submit_button(
+        submitted = st.form_submit_button(
             "💾 Save Past Activity",
             use_container_width=True, type="primary"
         )
