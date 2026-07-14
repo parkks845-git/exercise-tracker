@@ -125,6 +125,29 @@ def save_goal(pid: str, block_number: int, block_start: str,
         "aerobic_duration":      a_duration,
     }, on_conflict="subject_id,month_number").execute()
 
+# ── Timer persistence (Supabase) ──────────────────────────────────────────────
+def save_timer_start(pid: str, activity_key: str, start_time_unix: float):
+    sb = get_supabase()
+    sb.table("timers").upsert({
+        "subject_id":   pid,
+        "activity_key": activity_key,
+        "start_time":   start_time_unix
+    }, on_conflict="subject_id,activity_key").execute()
+
+def clear_timer(pid: str, activity_key: str):
+    sb = get_supabase()
+    sb.table("timers").delete()\
+        .eq("subject_id", pid)\
+        .eq("activity_key", activity_key)\
+        .execute()
+
+def load_timers(pid: str) -> dict:
+    sb = get_supabase()
+    res = sb.table("timers").select("*").eq("subject_id", pid).execute()
+    if not res.data:
+        return {}
+    return {row["activity_key"]: float(row["start_time"]) for row in res.data}
+
 # ── Image helper ─────────────────────────────────────────────────────────────
 def img_to_html(path: str, height: str = "2rem") -> str:
     try:
@@ -195,6 +218,25 @@ for act in ACTIVITIES:
     st.session_state.setdefault(f"saved_{k}",        False)
     st.session_state.setdefault(f"used_resource_{k}", "Yes")
     st.session_state.setdefault(f"synchrony_{k}",    "Moderately")
+
+# ── Restore active timers from Supabase on app load ───────────────────────────
+if "timers_loaded" not in st.session_state:
+    try:
+        active_timers = load_timers(subject_id)
+        now = time.time()
+        for act in ACTIVITIES:
+            k = act["key"]
+            if k in active_timers:
+                stored_start = active_timers[k]
+                # Discard timers older than 24 hours (likely stale)
+                if now - stored_start < 86400:
+                    st.session_state[f"running_{k}"]    = True
+                    st.session_state[f"start_time_{k}"] = stored_start
+                else:
+                    clear_timer(subject_id, k)
+    except Exception:
+        pass
+    st.session_state["timers_loaded"] = True
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
@@ -279,6 +321,10 @@ with tab1:
                         st.session_state[f"elapsed_{k}"]    = total_secs / 60
                         st.session_state[f"running_{k}"]    = False
                         st.session_state[f"start_time_{k}"] = None
+                        try:
+                            clear_timer(subject_id, k)
+                        except Exception:
+                            pass
                         st.rerun()
                 else:
                     if elapsed > 0:
@@ -302,10 +348,13 @@ with tab1:
                         with c1:
                             if st.button("▶ Resume", key=f"resume_{k}",
                                          use_container_width=True):
+                                resume_ts = time.time() - (elapsed * 60)
                                 st.session_state[f"running_{k}"]    = True
-                                st.session_state[f"start_time_{k}"] = (
-                                    time.time() - (elapsed * 60)
-                                )
+                                st.session_state[f"start_time_{k}"] = resume_ts
+                                try:
+                                    save_timer_start(subject_id, k, resume_ts)
+                                except Exception:
+                                    pass
                                 st.rerun()
                         with c2:
                             if st.button("💾 Save", key=f"save_{k}",
@@ -323,12 +372,21 @@ with tab1:
                         if st.button("✕ Discard", key=f"discard_{k}",
                                      use_container_width=True):
                             st.session_state[f"elapsed_{k}"] = 0.0
+                            try:
+                                clear_timer(subject_id, k)
+                            except Exception:
+                                pass
                             st.rerun()
                     else:
                         if st.button("▶ Start", key=f"start_{k}",
                                      use_container_width=True, type="primary"):
+                            start_ts = time.time()
                             st.session_state[f"running_{k}"]    = True
-                            st.session_state[f"start_time_{k}"] = time.time()
+                            st.session_state[f"start_time_{k}"] = start_ts
+                            try:
+                                save_timer_start(subject_id, k, start_ts)
+                            except Exception:
+                                pass
                             st.rerun()
 
             st.markdown("</div>", unsafe_allow_html=True)
