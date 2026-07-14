@@ -160,7 +160,6 @@ def img_to_html(path: str, height: str = "2rem") -> str:
 
 # !! Update STUDY_START to your actual study start date !!
 # ── Load participant config from Supabase ─────────────────────────────────────
-@st.cache_data(ttl=3600)
 def load_participant(pid: str) -> dict:
     sb = get_supabase()
     res = sb.table("participants").select("*").eq("subject_id", pid).execute()
