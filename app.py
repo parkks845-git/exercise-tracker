@@ -86,18 +86,53 @@ html, body, [class*="css"] {
     padding: 0.55rem 1rem !important;
     border-radius: 8px !important;
 }
+/* ── Form question labels ── */
 .stRadio label, .stSelectbox label,
 .stNumberInput label, .stTextInput label,
 .stDateInput label, .stMultiSelect label {
-    font-size: 1.05rem !important;
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+}
+
+/* ── Radio option text ── */
+.stRadio div[role="radiogroup"] label p,
+.stRadio div[role="radiogroup"] label {
+    font-size: 1.1rem !important;
     font-weight: 600 !important;
 }
-.stRadio div[role="radiogroup"] label,
-.stSelectbox div[data-baseweb="select"] {
-    font-size: 1.05rem !important;
+
+/* ── Selectbox selected value and dropdown options ── */
+.stSelectbox div[data-baseweb="select"] span,
+.stSelectbox div[data-baseweb="select"] div {
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
 }
-.stDataFrame, .stTable {
-    font-size: 1rem !important;
+
+/* ── Today's log and past activity HTML tables ── */
+.log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.log-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--secondary-background-color);
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-bottom: 2px solid #e6e9ef;
+}
+.log-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #e6e9ef;
+}
+.log-table td:last-child { text-align: right; }
+.log-total {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-top: 6px;
+    color: var(--text-color);
 }
 .stCaption, .stMarkdown p {
     font-size: 1rem !important;
@@ -426,18 +461,30 @@ with tab1:
                 else:
                     if elapsed > 0:
                         # ── Follow-up questions (shown after stopping) ──
+                        st.markdown(
+                            f"<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
+                            f"{act['resource_label']}</p>",
+                            unsafe_allow_html=True
+                        )
                         used_resource = st.radio(
                             act["resource_label"],
                             ["Yes", "No"],
                             key=f"used_resource_{k}",
-                            horizontal=True
+                            horizontal=True,
+                            label_visibility="collapsed"
                         )
                         if used_resource == "Yes":
+                            st.markdown(
+                                "<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
+                                "Synchrony between exercise tempo and auditory cues:</p>",
+                                unsafe_allow_html=True
+                            )
                             synchrony = st.selectbox(
                                 "Synchrony between exercise tempo and auditory cues:",
                                 ["Not at all", "Slightly", "Moderately",
                                  "Mostly", "Completely"],
-                                key=f"synchrony_{k}"
+                                key=f"synchrony_{k}",
+                                label_visibility="collapsed"
                             )
                         else:
                             synchrony = "N/A"
@@ -503,17 +550,29 @@ with tab1:
             today_rows = df_today[df_today["date"] == today.isoformat()].copy()
             if not today_rows.empty:
                 today_rows["duration_minutes"] = pd.to_numeric(today_rows["duration_minutes"])
-                display = today_rows[["activity_type", "duration_minutes"]].rename(
-                    columns={"activity_type": "Activity", "duration_minutes": "Duration (min)"}
+                rows_html = "".join(
+                    f"<tr><td>{row['activity_type']}</td>"
+                    f"<td>{row['duration_minutes']:.1f}</td></tr>"
+                    for _, row in today_rows.iterrows()
                 )
-                st.dataframe(display, use_container_width=True, hide_index=True)
-                st.caption(
-                    f"Total today: **{today_rows['duration_minutes'].sum():.1f} min**"
+                st.markdown(
+                    f"<table class='log-table'>"
+                    f"<thead><tr><th>Activity</th><th style='text-align:right;'>Duration (min)</th></tr></thead>"
+                    f"<tbody>{rows_html}</tbody></table>"
+                    f"<div class='log-total'>Total today: "
+                    f"{today_rows['duration_minutes'].sum():.1f} min</div>",
+                    unsafe_allow_html=True
                 )
             else:
-                st.caption("No activities logged today yet.")
+                st.markdown(
+                    "<p style='font-size:1.05rem;color:#888;'>No activities logged today yet.</p>",
+                    unsafe_allow_html=True
+                )
         else:
-            st.caption("No activities logged today yet.")
+            st.markdown(
+                "<p style='font-size:1.05rem;color:#888;'>No activities logged today yet.</p>",
+                unsafe_allow_html=True
+            )
     except Exception as e:
         st.warning(f"Could not load today's log: {e}")
 
@@ -522,7 +581,11 @@ with tab1:
     # ════════════════════════════════════════════════════════════════════════
     st.divider()
     st.subheader("Record Past Activities")
-    st.caption("Forgot to use the timer? Log a past session here.")
+    st.markdown(
+        "<p style='font-size:1.05rem; color:#888;'>"
+        "Forgot to use the timer? Log a past session here.</p>",
+        unsafe_allow_html=True
+    )
 
     RETRO_ACTIVITIES = [a["name"] for a in ACTIVITIES]
     RETRO_RESOURCE_MAP = {a["name"]: a["resource_label"] for a in ACTIVITIES}
@@ -553,17 +616,29 @@ with tab1:
                 st.session_state.get("retro_activity", RETRO_ACTIVITIES[0]),
                 "Did you use the iSTEP resource?"
             )
+            st.markdown(
+                f"<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
+                f"{retro_resource_label}</p>",
+                unsafe_allow_html=True
+            )
             retro_used_resource = st.radio(
                 retro_resource_label,
                 ["Yes", "No"],
                 horizontal=True,
-                key="retro_used_resource"
+                key="retro_used_resource",
+                label_visibility="collapsed"
             )
             if retro_used_resource == "Yes":
+                st.markdown(
+                    "<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
+                    "Synchrony between exercise tempo and auditory cues:</p>",
+                    unsafe_allow_html=True
+                )
                 retro_synchrony = st.selectbox(
                     "Synchrony between exercise tempo and auditory cues:",
                     ["Not at all", "Slightly", "Moderately", "Mostly", "Completely"],
-                    key="retro_synchrony"
+                    key="retro_synchrony",
+                    label_visibility="collapsed"
                 )
             else:
                 retro_synchrony = "N/A"
