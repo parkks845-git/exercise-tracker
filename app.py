@@ -30,6 +30,16 @@ st.markdown("""
     margin-bottom: 8px;
     text-align: center;
 }
+.activity-card.recording {
+    background: rgba(226, 75, 74, 0.08);
+    border: 2px solid #E24B4A;
+    animation: pulse-border 1.5s ease-in-out infinite;
+}
+@keyframes pulse-border {
+    0%   { box-shadow: 0 0 0 0 rgba(226, 75, 74, 0.4); }
+    70%  { box-shadow: 0 0 0 8px rgba(226, 75, 74, 0.0); }
+    100% { box-shadow: 0 0 0 0 rgba(226, 75, 74, 0.0); }
+}
 .activity-header {
     display: flex;
     align-items: center;
@@ -37,9 +47,25 @@ st.markdown("""
     gap: 8px;
     margin-bottom: 4px;
 }
-.activity-header img   { height: 2rem; width: auto; }
+.activity-header img        { height: 2rem; width: auto; }
 .activity-header .act-emoji { font-size: 2rem; line-height: 1; }
 .activity-header .act-name  { font-size: 1rem; font-weight: 600; }
+.status-recording {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #E24B4A;
+    text-align: center;
+    margin-bottom: 2px;
+}
+.status-stopped {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #888;
+    text-align: center;
+    margin-bottom: 2px;
+}
 #root > div:nth-child(1) > div > div > div > div > section > div {
     padding-top: 1.2rem !important;
 }
@@ -281,7 +307,8 @@ with tab1:
             mins_d = int(display_secs // 60)
             secs_d = int(display_secs % 60)
 
-            st.markdown("<div class='activity-card'>", unsafe_allow_html=True)
+            card_class = "activity-card recording" if running else "activity-card"
+            st.markdown(f"<div class='{card_class}'>", unsafe_allow_html=True)
 
             # Icon and name on one line
             if act.get("img"):
@@ -295,6 +322,25 @@ with tab1:
                 f"</div>",
                 unsafe_allow_html=True
             )
+
+            # Status text
+            if saved:
+                pass  # saved state handled below
+            elif running:
+                st.markdown(
+                    "<div class='status-recording'>⏺ RECORDING</div>",
+                    unsafe_allow_html=True
+                )
+            elif elapsed > 0:
+                st.markdown(
+                    "<div class='status-stopped'>⏸ PAUSED</div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    "<div class='status-stopped'>READY</div>",
+                    unsafe_allow_html=True
+                )
 
             if saved:
                 st.markdown(
