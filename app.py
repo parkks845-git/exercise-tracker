@@ -15,14 +15,22 @@ st.set_page_config(
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+/* ── Global base font ── */
+html, body, [class*="css"] {
+    font-size: 18px !important;
+}
+
+/* ── Timer display ── */
 .timer-display {
-    font-size: 2.4rem;
-    font-weight: 700;
+    font-size: 3.2rem;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.05em;
     text-align: center;
     padding: 12px 0 4px;
 }
+
+/* ── Activity cards ── */
 .activity-card {
     background: var(--secondary-background-color);
     border-radius: 12px;
@@ -40,32 +48,76 @@ st.markdown("""
     70%  { box-shadow: 0 0 0 8px rgba(226, 75, 74, 0.0); }
     100% { box-shadow: 0 0 0 0 rgba(226, 75, 74, 0.0); }
 }
+
+/* ── Activity header (icon + name) ── */
 .activity-header {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
-.activity-header img        { height: 2rem; width: auto; }
-.activity-header .act-emoji { font-size: 2rem; line-height: 1; }
-.activity-header .act-name  { font-size: 1rem; font-weight: 600; }
+.activity-header img        { height: 2.4rem; width: auto; }
+.activity-header .act-emoji { font-size: 2.4rem; line-height: 1; }
+.activity-header .act-name  { font-size: 1.2rem; font-weight: 700; }
+
+/* ── Status labels ── */
 .status-recording {
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
     color: #E24B4A;
     text-align: center;
     margin-bottom: 2px;
 }
 .status-stopped {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     color: #888;
     text-align: center;
     margin-bottom: 2px;
 }
+
+/* ── Streamlit native elements ── */
+.stButton > button {
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    padding: 0.55rem 1rem !important;
+    border-radius: 8px !important;
+}
+.stRadio label, .stSelectbox label,
+.stNumberInput label, .stTextInput label,
+.stDateInput label, .stMultiSelect label {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+}
+.stRadio div[role="radiogroup"] label,
+.stSelectbox div[data-baseweb="select"] {
+    font-size: 1.05rem !important;
+}
+.stDataFrame, .stTable {
+    font-size: 1rem !important;
+}
+.stCaption, .stMarkdown p {
+    font-size: 1rem !important;
+}
+[data-testid="stMetricLabel"] {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+}
+[data-testid="stTab"] {
+    font-size: 1.05rem !important;
+    font-weight: 600 !important;
+}
+h1 { font-size: 1.8rem !important; font-weight: 800 !important; }
+h2 { font-size: 1.4rem !important; font-weight: 700 !important; }
+h3 { font-size: 1.2rem !important; font-weight: 700 !important; }
+
 #root > div:nth-child(1) > div > div > div > div > section > div {
     padding-top: 1.2rem !important;
 }
