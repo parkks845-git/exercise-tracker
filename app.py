@@ -130,9 +130,22 @@ def save_goal(pid: str, block_number: int, block_start: str,
 def save_timer_start(pid: str, activity_key: str, start_time_unix: float):
     sb = get_supabase()
     sb.table("timers").upsert({
-        "subject_id":   pid,
-        "activity_key": activity_key,
-        "start_time":   start_time_unix
+        "subject_id":      pid,
+        "activity_key":    activity_key,
+        "start_time":      start_time_unix,
+        "elapsed_minutes": 0,
+        "status":          "running"
+    }, on_conflict="subject_id,activity_key").execute()
+
+def save_timer_paused(pid: str, activity_key: str, elapsed_minutes: float):
+    """Save paused state so it survives a page refresh."""
+    sb = get_supabase()
+    sb.table("timers").upsert({
+        "subject_id":      pid,
+        "activity_key":    activity_key,
+        "start_time":      None,
+        "elapsed_minutes": elapsed_minutes,
+        "status":          "paused"
     }, on_conflict="subject_id,activity_key").execute()
 
 def clear_timer(pid: str, activity_key: str):
@@ -143,11 +156,12 @@ def clear_timer(pid: str, activity_key: str):
         .execute()
 
 def load_timers(pid: str) -> dict:
+    """Returns {activity_key: row_dict} for all active timers."""
     sb = get_supabase()
     res = sb.table("timers").select("*").eq("subject_id", pid).execute()
     if not res.data:
         return {}
-    return {row["activity_key"]: float(row["start_time"]) for row in res.data}
+    return {row["activity_key"]: row for row in res.data}
 
 # ── Image helper ─────────────────────────────────────────────────────────────
 def img_to_html(path: str, height: str = "2rem") -> str:
@@ -255,21 +269,43 @@ if "timers_loaded" not in st.session_state:
         for act in ACTIVITIES:
             k = act["key"]
             if k in active_timers:
-                stored_start = active_timers[k]
-                # Discard timers older than 24 hours (likely stale)
-                if now - stored_start < 86400:
-                    st.session_state[f"running_{k}"]    = True
-                    st.session_state[f"start_time_{k}"] = stored_start
-                else:
-                    clear_timer(subject_id, k)
+                row = active_timers[k]
+                status = row.get("status", "running")
+                if status == "running":
+                    stored_start = float(row["start_time"]) if row.get("start_time") else None
+                    if stored_start and now - stored_start < 86400:
+                        st.session_state[f"running_{k}"]    = True
+                        st.session_state[f"start_time_{k}"] = stored_start
+                    else:
+                        clear_timer(subject_id, k)
+                elif status == "paused":
+                    elapsed = float(row.get("elapsed_minutes") or 0)
+                    if elapsed > 0:
+                        st.session_state[f"elapsed_{k}"]  = elapsed
+                        st.session_state[f"running_{k}"]  = False
     except Exception:
         pass
+
+    # Check which activities were already saved today
+    try:
+        df_check = load_activities(subject_id)
+        if not df_check.empty:
+            today_logged = set(
+                df_check[df_check["date"] == date.today().isoformat()]["activity_type"].tolist()
+            )
+        else:
+            today_logged = set()
+    except Exception:
+        today_logged = set()
+    st.session_state["today_logged"] = today_logged
     st.session_state["timers_loaded"] = True
+
+today_logged = st.session_state.get("today_logged", set())
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
     "<h1 style='font-size:1.6rem; white-space:nowrap; margin-bottom:4px;'>"
-    "Exercise Log and Tracker</h1>",
+    "Exercise Journal and Tracker</h1>",
     unsafe_allow_html=True
 )
 
@@ -298,7 +334,8 @@ with tab1:
         with cols[i]:
             running = st.session_state[f"running_{k}"]
             elapsed = st.session_state[f"elapsed_{k}"]
-            saved   = st.session_state[f"saved_{k}"]
+            saved   = (st.session_state[f"saved_{k}"] or
+                       (act["name"] in today_logged and not running and elapsed == 0))
 
             st.markdown("<div class='activity-card'>", unsafe_allow_html=True)
 
@@ -323,6 +360,9 @@ with tab1:
                 if st.button("Log another", key=f"reset_{k}", use_container_width=True):
                     st.session_state[f"saved_{k}"]   = False
                     st.session_state[f"elapsed_{k}"] = 0.0
+                    logged = st.session_state.get("today_logged", set())
+                    logged.discard(act["name"])
+                    st.session_state["today_logged"] = logged
                     st.rerun()
             else:
                 if running and st.session_state[f"start_time_{k}"]:
@@ -342,11 +382,12 @@ with tab1:
                     if st.button("⏹ Stop", key=f"stop_{k}",
                                  use_container_width=True, type="primary"):
                         total_secs = time.time() - st.session_state[f"start_time_{k}"]
-                        st.session_state[f"elapsed_{k}"]    = total_secs / 60
+                        elapsed_mins = total_secs / 60
+                        st.session_state[f"elapsed_{k}"]    = elapsed_mins
                         st.session_state[f"running_{k}"]    = False
                         st.session_state[f"start_time_{k}"] = None
                         try:
-                            clear_timer(subject_id, k)
+                            save_timer_paused(subject_id, k, elapsed_mins)
                         except Exception:
                             pass
                         st.rerun()
@@ -375,6 +416,7 @@ with tab1:
                                 resume_ts = time.time() - (elapsed * 60)
                                 st.session_state[f"running_{k}"]    = True
                                 st.session_state[f"start_time_{k}"] = resume_ts
+                                st.session_state[f"elapsed_{k}"]    = 0.0
                                 try:
                                     save_timer_start(subject_id, k, resume_ts)
                                 except Exception:
@@ -390,6 +432,14 @@ with tab1:
                                     )
                                     st.session_state[f"saved_{k}"]   = True
                                     st.session_state[f"elapsed_{k}"] = 0.0
+                                    # Update today_logged so saved state persists on refresh
+                                    logged = st.session_state.get("today_logged", set())
+                                    logged.add(act["name"])
+                                    st.session_state["today_logged"] = logged
+                                    try:
+                                        clear_timer(subject_id, k)
+                                    except Exception:
+                                        pass
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"Could not save: {e}")
