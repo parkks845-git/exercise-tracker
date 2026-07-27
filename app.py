@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.graph_objects as go
 from supabase import create_client, Client
@@ -15,22 +16,14 @@ st.set_page_config(
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Global base font ── */
-html, body, [class*="css"] {
-    font-size: 18px !important;
-}
-
-/* ── Timer display ── */
 .timer-display {
-    font-size: 3.2rem;
-    font-weight: 800;
+    font-size: 2.4rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.05em;
     text-align: center;
     padding: 12px 0 4px;
 }
-
-/* ── Activity cards ── */
 .activity-card {
     background: var(--secondary-background-color);
     border-radius: 12px;
@@ -38,121 +31,16 @@ html, body, [class*="css"] {
     margin-bottom: 8px;
     text-align: center;
 }
-.activity-card.recording {
-    background: rgba(226, 75, 74, 0.08);
-    border: 2px solid #E24B4A;
-    animation: pulse-border 1.5s ease-in-out infinite;
-}
-@keyframes pulse-border {
-    0%   { box-shadow: 0 0 0 0 rgba(226, 75, 74, 0.4); }
-    70%  { box-shadow: 0 0 0 8px rgba(226, 75, 74, 0.0); }
-    100% { box-shadow: 0 0 0 0 rgba(226, 75, 74, 0.0); }
-}
-
-/* ── Activity header (icon + name) ── */
 .activity-header {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
-.activity-header img        { height: 2.4rem; width: auto; }
-.activity-header .act-emoji { font-size: 2.4rem; line-height: 1; }
-.activity-header .act-name  { font-size: 1.2rem; font-weight: 700; }
-
-/* ── Status labels ── */
-.status-recording {
-    font-size: 1rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    color: #E24B4A;
-    text-align: center;
-    margin-bottom: 2px;
-}
-.status-stopped {
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: #888;
-    text-align: center;
-    margin-bottom: 2px;
-}
-
-/* ── Streamlit native elements ── */
-.stButton > button {
-    font-size: 1.1rem !important;
-    font-weight: 700 !important;
-    padding: 0.55rem 1rem !important;
-    border-radius: 8px !important;
-}
-/* ── Form question labels ── */
-.stRadio label, .stSelectbox label,
-.stNumberInput label, .stTextInput label,
-.stDateInput label, .stMultiSelect label {
-    font-size: 1.15rem !important;
-    font-weight: 700 !important;
-}
-
-/* ── Radio option text ── */
-.stRadio div[role="radiogroup"] label p,
-.stRadio div[role="radiogroup"] label {
-    font-size: 1.1rem !important;
-    font-weight: 600 !important;
-}
-
-/* ── Selectbox selected value and dropdown options ── */
-.stSelectbox div[data-baseweb="select"] span,
-.stSelectbox div[data-baseweb="select"] div {
-    font-size: 1.1rem !important;
-    font-weight: 600 !important;
-}
-
-/* ── Today's log and past activity HTML tables ── */
-.log-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-.log-table th {
-    text-align: left;
-    padding: 10px 14px;
-    background: var(--secondary-background-color);
-    font-size: 1.05rem;
-    font-weight: 700;
-    border-bottom: 2px solid #e6e9ef;
-}
-.log-table td {
-    padding: 9px 14px;
-    border-bottom: 1px solid #e6e9ef;
-}
-.log-table td:last-child { text-align: right; }
-.log-total {
-    font-size: 1.05rem;
-    font-weight: 700;
-    margin-top: 6px;
-    color: var(--text-color);
-}
-.stCaption, .stMarkdown p {
-    font-size: 1rem !important;
-}
-[data-testid="stMetricLabel"] {
-    font-size: 1rem !important;
-    font-weight: 700 !important;
-}
-[data-testid="stMetricValue"] {
-    font-size: 1.4rem !important;
-    font-weight: 800 !important;
-}
-[data-testid="stTab"] {
-    font-size: 1.05rem !important;
-    font-weight: 600 !important;
-}
-h1 { font-size: 1.8rem !important; font-weight: 800 !important; }
-h2 { font-size: 1.4rem !important; font-weight: 700 !important; }
-h3 { font-size: 1.2rem !important; font-weight: 700 !important; }
-
+.activity-header img   { height: 2rem; width: auto; }
+.activity-header .act-emoji { font-size: 2rem; line-height: 1; }
+.activity-header .act-name  { font-size: 1rem; font-weight: 600; }
 #root > div:nth-child(1) > div > div > div > div > section > div {
     padding-top: 1.2rem !important;
 }
@@ -271,6 +159,34 @@ def img_to_html(path: str, height: str = "2rem") -> str:
     except Exception:
         return ""
 
+def js_timer(start_time_unix: float, color: str):
+    """Render a JavaScript timer that counts up entirely in the browser.
+    No server calls needed — eliminates the autorefresh bottleneck."""
+    elapsed_at_render = time.time() - start_time_unix
+    components.html(f"""
+    <div id="timer" style="
+        font-size:3.2rem; font-weight:800; text-align:center;
+        color:{color}; font-variant-numeric:tabular-nums;
+        letter-spacing:0.05em; padding:12px 0 4px; line-height:1.1;
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+        00:00
+    </div>
+    <script>
+      var offset = {elapsed_at_render:.3f};
+      var wall0  = Date.now() / 1000;
+      function tick() {{
+        var elapsed = offset + (Date.now() / 1000 - wall0);
+        var m = Math.floor(elapsed / 60);
+        var s = Math.floor(elapsed % 60);
+        var el = document.getElementById('timer');
+        if (el) el.textContent =
+          String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+      }}
+      tick();
+      setInterval(tick, 1000);
+    </script>
+    """, height=75, scrolling=False)
+
 # !! Update STUDY_START to your actual study start date !!
 # ── Load participant config from Supabase ─────────────────────────────────────
 def load_participant(pid: str) -> dict:
@@ -353,7 +269,7 @@ if "timers_loaded" not in st.session_state:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
     "<h1 style='font-size:1.6rem; white-space:nowrap; margin-bottom:4px;'>"
-    "Exercise Journal and Tracker</h1>",
+    "Exercise Log and Tracker</h1>",
     unsafe_allow_html=True
 )
 
@@ -376,8 +292,6 @@ tab1, tab2, tab3 = st.tabs(["📅 Log Activity", "🎯 SMART Goals", "📈 My Pr
 with tab1:
     st.subheader("Today's Activities")
 
-    any_running = any(st.session_state[f"running_{a['key']}"] for a in ACTIVITIES)
-
     cols = st.columns(4)
     for i, act in enumerate(ACTIVITIES):
         k = act["key"]
@@ -386,16 +300,7 @@ with tab1:
             elapsed = st.session_state[f"elapsed_{k}"]
             saved   = st.session_state[f"saved_{k}"]
 
-            if running and st.session_state[f"start_time_{k}"]:
-                display_secs = time.time() - st.session_state[f"start_time_{k}"]
-            else:
-                display_secs = elapsed * 60
-
-            mins_d = int(display_secs // 60)
-            secs_d = int(display_secs % 60)
-
-            card_class = "activity-card recording" if running else "activity-card"
-            st.markdown(f"<div class='{card_class}'>", unsafe_allow_html=True)
+            st.markdown("<div class='activity-card'>", unsafe_allow_html=True)
 
             # Icon and name on one line
             if act.get("img"):
@@ -410,25 +315,6 @@ with tab1:
                 unsafe_allow_html=True
             )
 
-            # Status text
-            if saved:
-                pass  # saved state handled below
-            elif running:
-                st.markdown(
-                    "<div class='status-recording'>⏺ RECORDING</div>",
-                    unsafe_allow_html=True
-                )
-            elif elapsed > 0:
-                st.markdown(
-                    "<div class='status-stopped'>⏸ PAUSED</div>",
-                    unsafe_allow_html=True
-                )
-            else:
-                st.markdown(
-                    "<div class='status-stopped'>READY</div>",
-                    unsafe_allow_html=True
-                )
-
             if saved:
                 st.markdown(
                     f"<div class='timer-display' style='color:{act['color']}'>✓ Saved</div>",
@@ -439,12 +325,18 @@ with tab1:
                     st.session_state[f"elapsed_{k}"] = 0.0
                     st.rerun()
             else:
-                color = act["color"] if running else "inherit"
-                st.markdown(
-                    f"<div class='timer-display' style='color:{color}'>"
-                    f"{mins_d:02d}:{secs_d:02d}</div>",
-                    unsafe_allow_html=True
-                )
+                if running and st.session_state[f"start_time_{k}"]:
+                    # JS timer — runs entirely in browser, no server calls
+                    js_timer(st.session_state[f"start_time_{k}"], act["color"])
+                else:
+                    # Static display when paused or ready
+                    mins_d = int((elapsed * 60) // 60)
+                    secs_d = int((elapsed * 60) % 60)
+                    st.markdown(
+                        f"<div class='timer-display'>"
+                        f"{mins_d:02d}:{secs_d:02d}</div>",
+                        unsafe_allow_html=True
+                    )
 
                 if running:
                     if st.button("⏹ Stop", key=f"stop_{k}",
@@ -461,30 +353,18 @@ with tab1:
                 else:
                     if elapsed > 0:
                         # ── Follow-up questions (shown after stopping) ──
-                        st.markdown(
-                            f"<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
-                            f"{act['resource_label']}</p>",
-                            unsafe_allow_html=True
-                        )
                         used_resource = st.radio(
                             act["resource_label"],
                             ["Yes", "No"],
                             key=f"used_resource_{k}",
-                            horizontal=True,
-                            label_visibility="collapsed"
+                            horizontal=True
                         )
                         if used_resource == "Yes":
-                            st.markdown(
-                                "<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
-                                "Synchrony between exercise tempo and auditory cues:</p>",
-                                unsafe_allow_html=True
-                            )
                             synchrony = st.selectbox(
                                 "Synchrony between exercise tempo and auditory cues:",
                                 ["Not at all", "Slightly", "Moderately",
                                  "Mostly", "Completely"],
-                                key=f"synchrony_{k}",
-                                label_visibility="collapsed"
+                                key=f"synchrony_{k}"
                             )
                         else:
                             synchrony = "N/A"
@@ -535,13 +415,6 @@ with tab1:
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-    if any_running:
-        try:
-            from streamlit_autorefresh import st_autorefresh
-            st_autorefresh(interval=1000, key="live_timer")
-        except ImportError:
-            st.caption("⚠️ Install `streamlit-autorefresh` for a live timer display.")
-
     st.divider()
     st.subheader("Today's Log")
     try:
@@ -550,29 +423,17 @@ with tab1:
             today_rows = df_today[df_today["date"] == today.isoformat()].copy()
             if not today_rows.empty:
                 today_rows["duration_minutes"] = pd.to_numeric(today_rows["duration_minutes"])
-                rows_html = "".join(
-                    f"<tr><td>{row['activity_type']}</td>"
-                    f"<td>{row['duration_minutes']:.1f}</td></tr>"
-                    for _, row in today_rows.iterrows()
+                display = today_rows[["activity_type", "duration_minutes"]].rename(
+                    columns={"activity_type": "Activity", "duration_minutes": "Duration (min)"}
                 )
-                st.markdown(
-                    f"<table class='log-table'>"
-                    f"<thead><tr><th>Activity</th><th style='text-align:right;'>Duration (min)</th></tr></thead>"
-                    f"<tbody>{rows_html}</tbody></table>"
-                    f"<div class='log-total'>Total today: "
-                    f"{today_rows['duration_minutes'].sum():.1f} min</div>",
-                    unsafe_allow_html=True
+                st.dataframe(display, use_container_width=True, hide_index=True)
+                st.caption(
+                    f"Total today: **{today_rows['duration_minutes'].sum():.1f} min**"
                 )
             else:
-                st.markdown(
-                    "<p style='font-size:1.05rem;color:#888;'>No activities logged today yet.</p>",
-                    unsafe_allow_html=True
-                )
+                st.caption("No activities logged today yet.")
         else:
-            st.markdown(
-                "<p style='font-size:1.05rem;color:#888;'>No activities logged today yet.</p>",
-                unsafe_allow_html=True
-            )
+            st.caption("No activities logged today yet.")
     except Exception as e:
         st.warning(f"Could not load today's log: {e}")
 
@@ -581,11 +442,7 @@ with tab1:
     # ════════════════════════════════════════════════════════════════════════
     st.divider()
     st.subheader("Record Past Activities")
-    st.markdown(
-        "<p style='font-size:1.05rem; color:#888;'>"
-        "Forgot to use the timer? Log a past session here.</p>",
-        unsafe_allow_html=True
-    )
+    st.caption("Forgot to use the timer? Log a past session here.")
 
     RETRO_ACTIVITIES = [a["name"] for a in ACTIVITIES]
     RETRO_RESOURCE_MAP = {a["name"]: a["resource_label"] for a in ACTIVITIES}
@@ -616,29 +473,17 @@ with tab1:
                 st.session_state.get("retro_activity", RETRO_ACTIVITIES[0]),
                 "Did you use the iSTEP resource?"
             )
-            st.markdown(
-                f"<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
-                f"{retro_resource_label}</p>",
-                unsafe_allow_html=True
-            )
             retro_used_resource = st.radio(
                 retro_resource_label,
                 ["Yes", "No"],
                 horizontal=True,
-                key="retro_used_resource",
-                label_visibility="collapsed"
+                key="retro_used_resource"
             )
             if retro_used_resource == "Yes":
-                st.markdown(
-                    "<p style='font-size:1.1rem;font-weight:700;margin-bottom:4px;'>"
-                    "Synchrony between exercise tempo and auditory cues:</p>",
-                    unsafe_allow_html=True
-                )
                 retro_synchrony = st.selectbox(
                     "Synchrony between exercise tempo and auditory cues:",
                     ["Not at all", "Slightly", "Moderately", "Mostly", "Completely"],
-                    key="retro_synchrony",
-                    label_visibility="collapsed"
+                    key="retro_synchrony"
                 )
             else:
                 retro_synchrony = "N/A"
