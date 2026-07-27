@@ -140,13 +140,16 @@ def save_timer_start(pid: str, activity_key: str, start_time_unix: float):
 def save_timer_paused(pid: str, activity_key: str, elapsed_minutes: float):
     """Save paused state so it survives a page refresh."""
     sb = get_supabase()
-    sb.table("timers").upsert({
-        "subject_id":      pid,
-        "activity_key":    activity_key,
-        "start_time":      None,
-        "elapsed_minutes": elapsed_minutes,
-        "status":          "paused"
-    }, on_conflict="subject_id,activity_key").execute()
+    # Use UPDATE instead of upsert so we don't touch start_time NOT NULL constraint
+    sb.table("timers")\
+        .update({
+            "elapsed_minutes": elapsed_minutes,
+            "status":          "paused",
+            "start_time":      0
+        })\
+        .eq("subject_id", pid)\
+        .eq("activity_key", activity_key)\
+        .execute()
 
 def clear_timer(pid: str, activity_key: str):
     sb = get_supabase()
@@ -271,18 +274,24 @@ if "timers_loaded" not in st.session_state:
             if k in active_timers:
                 row = active_timers[k]
                 status = row.get("status", "running")
-                if status == "running":
-                    stored_start = float(row["start_time"]) if row.get("start_time") else None
-                    if stored_start and now - stored_start < 86400:
+                start_time_val = row.get("start_time")
+                stored_start = float(start_time_val) if start_time_val else 0
+
+                if status == "paused":
+                    # Paused: restore elapsed minutes, keep stopped
+                    elapsed = float(row.get("elapsed_minutes") or 0)
+                    if elapsed > 0:
+                        st.session_state[f"elapsed_{k}"] = elapsed
+                        st.session_state[f"running_{k}"] = False
+                elif status == "running" and stored_start > 0:
+                    # Running: restore active timer if less than 24 hours old
+                    if now - stored_start < 86400:
                         st.session_state[f"running_{k}"]    = True
                         st.session_state[f"start_time_{k}"] = stored_start
                     else:
                         clear_timer(subject_id, k)
-                elif status == "paused":
-                    elapsed = float(row.get("elapsed_minutes") or 0)
-                    if elapsed > 0:
-                        st.session_state[f"elapsed_{k}"]  = elapsed
-                        st.session_state[f"running_{k}"]  = False
+                else:
+                    clear_timer(subject_id, k)
     except Exception:
         pass
 
