@@ -503,6 +503,11 @@ with tab1:
     st.subheader("Record Past Activities")
     st.caption("Forgot to use the timer? Log a past session here.")
 
+    # Show success message from previous save (persisted via session state)
+    if st.session_state.get("retro_saved_msg"):
+        st.success(st.session_state["retro_saved_msg"])
+        st.session_state["retro_saved_msg"] = ""
+
     RETRO_ACTIVITIES = [a["name"] for a in ACTIVITIES]
     RETRO_RESOURCE_MAP = {a["name"]: a["resource_label"] for a in ACTIVITIES}
 
@@ -558,10 +563,13 @@ with tab1:
                     retro_used_resource, retro_synchrony,
                     log_date=retro_date.isoformat()
                 )
-                st.success(
+                # Store message in session state then rerun so Today's Log
+                # reloads from Supabase AFTER the save has completed
+                st.session_state["retro_saved_msg"] = (
                     f"✅ Saved {retro_duration} min of {retro_activity} "
                     f"on {retro_date.strftime('%b %d, %Y')}!"
                 )
+                st.rerun()
             except Exception as e:
                 st.error(f"Could not save: {e}")
 
